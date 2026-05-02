@@ -50,7 +50,7 @@ class ManimTable(Scene):
             arrange_in_grid_config = {"cell alignment": RIGHT},
             line_config = {"stroke_width": 1, "color": YELLOW},
             include_background_rectangle = True,
-            
+
         )
         t3.remove(*t3.get_vertical_lines())
 
@@ -59,3 +59,14 @@ class ManimTable(Scene):
         ).scale(0.7).arrange_in_grid(buff = 1)
 
         self.add(g)
+class MathTable1(Scene):
+    def construct(self):
+        t0 = MathTable(
+                [["+", 0, 5, 10],
+                [0, 0, 5, 10],
+                [2, 2, 7, 12],
+                [4, 4, 9, 14]],
+                include_outer_lines = True
+        )
+
+        self.add(t0)
