@@ -404,6 +404,47 @@ def build_linear_source(a, b, c, d, vx, vy, show_det, show_basis, show_grid):
     return _join(L)
 
 
+def build_code_source(code_str, language, anim, background, add_line_numbers, font_size, run_time):
+    safe = repr(code_str)   # escapes newlines, quotes, backslashes safely
+    L = [
+        "from manim import *",
+        "",
+        "class ManimScene(Scene):",
+        "    def construct(self):",
+        "        code = Code(",
+        f"            code_string={safe},",
+        f"            language={repr(language)},",
+        f"            background={repr(background)},",
+        f"            add_line_numbers={add_line_numbers},",
+        f"            paragraph_config={{'font_size': {font_size:.0f}}},",
+        "        )",
+        "        code.scale_to_fit_width(12).center()",
+    ]
+
+    if anim == "Write":
+        L.append(f"        self.play(Write(code), run_time={run_time:.1f})")
+    elif anim == "FadeIn":
+        L.append(f"        self.play(FadeIn(code), run_time={run_time:.1f})")
+    elif anim == "FadeIn Up":
+        L.append(f"        self.play(FadeIn(code, shift=UP * 0.4), run_time={run_time:.1f})")
+    elif anim == "Create":
+        L.append(f"        self.play(Create(code), run_time={run_time:.1f})")
+    elif anim == "Typewriter":
+        L += [
+            "        self.play(FadeIn(code.background_mobject), run_time=0.4)",
+            "        self.play(",
+            "            LaggedStart(",
+            "                *[Write(line) for line in code.code_lines],",
+            "                lag_ratio=0.5,",
+            "            ),",
+            f"            run_time={run_time:.1f},",
+            "        )",
+        ]
+
+    L.append("        self.wait(1.5)")
+    return _join(L)
+
+
 # ══════════════════════════════════════════════════════════════
 #  RENDER THREAD
 # ══════════════════════════════════════════════════════════════
@@ -666,6 +707,84 @@ class LinearPanel(QGroupBox):
         )
 
 
+class CodePanel(QGroupBox):
+    def __init__(self):
+        super().__init__("Code Animation")
+        v = QVBoxLayout(self)
+        v.setSpacing(6)
+
+        v.addWidget(hdr("CODE EDITOR"))
+        self.editor = QTextEdit()
+        self.editor.setFont(QFont("JetBrains Mono,Fira Code,Consolas", 10))
+        self.editor.setPlaceholderText("# Write your code here…")
+        self.editor.setMinimumHeight(220)
+        self.editor.setStyleSheet(
+            f"QTextEdit {{ background:#060d14; color:{C['text']};"
+            f" border:1px solid {C['border']}; border-radius:6px;"
+            f" font-family:'JetBrains Mono','Fira Code','Consolas',monospace;"
+            f" font-size:11px; padding:6px; }}"
+        )
+        self.editor.setText(
+            "def fibonacci(n):\n"
+            "    if n <= 1:\n"
+            "        return n\n"
+            "    return fibonacci(n-1) + fibonacci(n-2)\n"
+            "\n"
+            "print(fibonacci(10))"
+        )
+        v.addWidget(self.editor)
+
+        v.addWidget(sep())
+        v.addWidget(hdr("LANGUAGE"))
+        self.lang = QComboBox()
+        self.lang.addItems([
+            "python", "c", "cpp", "java", "javascript",
+            "typescript", "rust", "go", "bash", "sql",
+        ])
+        v.addWidget(self.lang)
+
+        v.addWidget(sep())
+        v.addWidget(hdr("ANIMATION STYLE"))
+        self.anim = QComboBox()
+        self.anim.addItems(["Write", "FadeIn", "FadeIn Up", "Create", "Typewriter"])
+        v.addWidget(self.anim)
+
+        v.addWidget(sep())
+        v.addWidget(hdr("DISPLAY"))
+
+        bg_row = QHBoxLayout()
+        bg_row.addWidget(QLabel("Background"))
+        self.bg = QComboBox()
+        self.bg.addItems(["window", "rectangle"])
+        bg_row.addWidget(self.bg)
+        bg_row.addStretch()
+        v.addLayout(bg_row)
+
+        ln_row = QHBoxLayout()
+        self.cb_lineno = QCheckBox("Line numbers")
+        self.cb_lineno.setChecked(True)
+        ln_row.addWidget(self.cb_lineno)
+        ln_row.addStretch()
+        v.addLayout(ln_row)
+
+        self.font_size = Knob("Font size",   8.0, 32.0, 16.0, decimals=0, step=1.0)
+        self.run_time  = Knob("Duration (s)", 0.5, 15.0,  4.0, decimals=1, step=0.5)
+        v.addWidget(self.font_size)
+        v.addWidget(self.run_time)
+        v.addStretch()
+
+    def source(self):
+        return build_code_source(
+            code_str        = self.editor.toPlainText(),
+            language        = self.lang.currentText(),
+            anim            = self.anim.currentText(),
+            background      = self.bg.currentText(),
+            add_line_numbers= self.cb_lineno.isChecked(),
+            font_size       = self.font_size.value(),
+            run_time        = self.run_time.value(),
+        )
+
+
 # ══════════════════════════════════════════════════════════════
 #  LEFT PANEL  (30%)
 # ══════════════════════════════════════════════════════════════
@@ -690,7 +809,7 @@ class LeftPanel(QWidget):
         sel_row = QHBoxLayout()
         sel_row.addWidget(QLabel("Panel"))
         self.selector = QComboBox()
-        self.selector.addItems(["Trigonometry", "Complex Plane", "Linear Algebra"])
+        self.selector.addItems(["Trigonometry", "Complex Plane", "Linear Algebra", "Code Animation"])
         self.selector.currentIndexChanged.connect(self._switch)
         sel_row.addWidget(self.selector)
         sel_row.addStretch()
@@ -707,7 +826,8 @@ class LeftPanel(QWidget):
         self.trig    = TrigPanel()
         self.complex = ComplexPanel()
         self.linear  = LinearPanel()
-        for p in [self.trig, self.complex, self.linear]:
+        self.code    = CodePanel()
+        for p in [self.trig, self.complex, self.linear, self.code]:
             iv.addWidget(p)
         iv.addStretch()
         scroll.setWidget(inner)
@@ -771,12 +891,13 @@ class LeftPanel(QWidget):
         self.trig   .setVisible(idx == 0)
         self.complex.setVisible(idx == 1)
         self.linear .setVisible(idx == 2)
+        self.code   .setVisible(idx == 3)
 
     def _active(self):
-        return [self.trig, self.complex, self.linear][self.selector.currentIndex()]
+        return [self.trig, self.complex, self.linear, self.code][self.selector.currentIndex()]
 
     def current_label(self):
-        return ["trigonometry", "complex_plane", "linear_algebra"][self.selector.currentIndex()]
+        return ["trigonometry", "complex_plane", "linear_algebra", "code_animation"][self.selector.currentIndex()]
 
     def _render(self):
         self.render_requested.emit(self._active().source())
