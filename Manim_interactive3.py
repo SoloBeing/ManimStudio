@@ -11,7 +11,7 @@ Install: pip install PyQt6 manim
 Run    : python manim_desmos.py
 """
 
-import sys, os, ast, subprocess, tempfile
+import sys, os, ast, subprocess, tempfile, shutil
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QSplitter, QTextEdit, QSlider, QDoubleSpinBox,
@@ -775,6 +775,9 @@ class LeftPanel(QWidget):
     def _active(self):
         return [self.trig, self.complex, self.linear][self.selector.currentIndex()]
 
+    def current_label(self):
+        return ["trigonometry", "complex_plane", "linear_algebra"][self.selector.currentIndex()]
+
     def _render(self):
         self.render_requested.emit(self._active().source())
 
@@ -898,6 +901,7 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(STYLE)
         self._thread         = None
         self._render_stopped = False
+        self._render_label   = "render"
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setHandleWidth(2)
@@ -933,6 +937,7 @@ class MainWindow(QMainWindow):
         self.left.btn_stop.setEnabled(True)
         self._sb.showMessage("Rendering…")
 
+        self._render_label = self.left.current_label()
         self._thread = RenderThread(source, flags, self.left.output_dir)
         self._thread.log.connect(self.right.append_log)
         self._thread.done.connect(self._done)
@@ -956,13 +961,28 @@ class MainWindow(QMainWindow):
             return
         self.left.btn_run.setEnabled(True)
         self.left.btn_stop.setEnabled(False)
-        if path and os.path.exists(path):
-            self.right.load(path)
-            self.right.set_status("● Playing", C['green'])
-            self._sb.showMessage(f"Done  {path}")
-        else:
+        if not (path and os.path.exists(path)):
             self.right.set_status("● Failed", C['red'])
             self._sb.showMessage("Render failed — see log")
+            return
+
+        ext        = os.path.splitext(path)[1].lower()
+        filt       = "GIF (*.gif)" if ext == ".gif" else "MP4 Video (*.mp4)"
+        default    = os.path.join(self.left.output_dir, f"{self._render_label}{ext}")
+        save_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Render As", default, filt
+        )
+
+        if save_path:
+            try:
+                shutil.move(path, save_path)
+                path = save_path
+            except OSError as e:
+                self.right.append_log(f"[WARN] could not move file: {e}")
+
+        self.right.load(path)
+        self.right.set_status("● Playing", C['green'])
+        self._sb.showMessage(f"Saved  {path}")
 
 
 # ══════════════════════════════════════════════════════════════
