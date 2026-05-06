@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QSplitter, QTextEdit, QSlider, QDoubleSpinBox,
     QGroupBox, QCheckBox, QScrollArea, QComboBox, QSizePolicy, QStatusBar,
-    QFrame, QGridLayout,
+    QFrame, QGridLayout, QFileDialog,
 )
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtMultimediaWidgets import QVideoWidget
@@ -424,12 +424,13 @@ class RenderThread(QThread):
     log  = pyqtSignal(str)
     done = pyqtSignal(str)
 
-    def __init__(self, source: str, flags: list):
+    def __init__(self, source: str, flags: list, output_dir: str):
         super().__init__()
-        self.source   = source
-        self.flags    = flags
-        self._proc    = None
-        self._stopped = False
+        self.source     = source
+        self.flags      = flags
+        self.output_dir = output_dir
+        self._proc      = None
+        self._stopped   = False
 
     def run(self):
         try:
@@ -447,10 +448,11 @@ class RenderThread(QThread):
 
         full_output = []
         try:
+            os.makedirs(self.output_dir, exist_ok=True)
             if getattr(sys, 'frozen', False):
-                cmd = [sys.executable, "--run-manim"] + self.flags + ["--media_dir", RENDERS_DIR, tmp, "ManimScene"]
+                cmd = [sys.executable, "--run-manim"] + self.flags + ["--media_dir", self.output_dir, tmp, "ManimScene"]
             else:
-                cmd = ["manim"] + self.flags + ["--media_dir", RENDERS_DIR, tmp, "ManimScene"]
+                cmd = ["manim"] + self.flags + ["--media_dir", self.output_dir, tmp, "ManimScene"]
             self._proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT, text=True,
@@ -475,10 +477,10 @@ class RenderThread(QThread):
             if token and os.path.exists(token):
                 video = token
 
-        # Fallback: newest mp4/gif in RENDERS_DIR
+        # Fallback: newest mp4/gif in output_dir
         if not video:
             candidates = []
-            for root_, _, files in os.walk(RENDERS_DIR):
+            for root_, _, files in os.walk(self.output_dir):
                 if "partial_movie_files" in root_:
                     continue
                 for fname in files:
@@ -712,6 +714,24 @@ class LeftPanel(QWidget):
         root.addWidget(scroll, stretch=1)
 
         root.addWidget(sep())
+
+        # Output directory picker
+        self.output_dir = RENDERS_DIR
+        dir_row = QHBoxLayout()
+        dir_row.setSpacing(6)
+        dir_icon = QLabel("📁")
+        self.dir_label = QLabel(self._short_path(self.output_dir))
+        self.dir_label.setObjectName("dim")
+        self.dir_label.setToolTip(self.output_dir)
+        btn_browse = QPushButton("Browse…")
+        btn_browse.setFixedSize(100, 32)
+        btn_browse.clicked.connect(self._browse_output)
+        dir_row.addWidget(dir_icon)
+        dir_row.addWidget(self.dir_label, stretch=1)
+        dir_row.addWidget(btn_browse)
+        root.addLayout(dir_row)
+
+        root.addWidget(sep())
         bar = QHBoxLayout()
         bar.setSpacing(6)
 
@@ -736,6 +756,16 @@ class LeftPanel(QWidget):
         root.addLayout(bar)
 
         self._switch(0)
+
+    def _short_path(self, path, max_len=32):
+        return path if len(path) <= max_len else "…" + path[-(max_len - 1):]
+
+    def _browse_output(self):
+        chosen = QFileDialog.getExistingDirectory(self, "Select Output Folder", self.output_dir)
+        if chosen:
+            self.output_dir = chosen
+            self.dir_label.setText(self._short_path(chosen))
+            self.dir_label.setToolTip(chosen)
 
     def _switch(self, idx):
         self.trig   .setVisible(idx == 0)
@@ -903,7 +933,7 @@ class MainWindow(QMainWindow):
         self.left.btn_stop.setEnabled(True)
         self._sb.showMessage("Rendering…")
 
-        self._thread = RenderThread(source, flags)
+        self._thread = RenderThread(source, flags, self.left.output_dir)
         self._thread.log.connect(self.right.append_log)
         self._thread.done.connect(self._done)
         self._thread.start()
