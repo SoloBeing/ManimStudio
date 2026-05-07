@@ -57,6 +57,20 @@ QComboBox#animationCombo {{
 QComboBox#animationCombo QAbstractItemView {{
     color:{C['text']}; font-weight:600;
 }}
+QComboBox#statusCombo {{
+    background:{C['bg1']}; color:{C['accent3']};
+    border:1px solid {C['border']}; border-radius:4px;
+    padding:2px 6px; font-size:10px; font-weight:700;
+}}
+QComboBox#statusCombo::drop-down {{
+    background:{C['bg2']}; border-left:1px solid {C['border']};
+    width:20px; border-top-right-radius:4px; border-bottom-right-radius:4px;
+}}
+QComboBox#statusCombo QAbstractItemView {{
+    background:{C['bg2']}; color:{C['text']};
+    border:1px solid {C['border']};
+    selection-background-color:{C['accent']}; selection-color:{C['bg0']};
+}}
 
 QCheckBox {{ font-size:11px; spacing:6px; }}
 QCheckBox::indicator {{ width:13px; height:13px; border-radius:3px;

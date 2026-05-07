@@ -215,9 +215,11 @@ class RightPanel(QWidget):
             self.player.play()
 
     def _toggle_log(self):
-        vis = not self.log.isVisible()
-        self.log.setVisible(vis)
-        self.btn_log.setText("hide" if vis else "show")
+        self.set_log_visible(not self.log.isVisible())
+
+    def set_log_visible(self, visible):
+        self.log.setVisible(visible)
+        self.btn_log.setText("hide" if visible else "show")
 
     def load(self, path):
         self.player.setSource(QUrl.fromLocalFile(path))
@@ -243,26 +245,60 @@ class MainWindow(QMainWindow):
         self._render_stopped = False
         self._render_label   = "render"
 
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.setHandleWidth(2)
-        splitter.setStyleSheet(f"QSplitter::handle {{ background:{C['border']}; }}")
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.setHandleWidth(2)
+        self.splitter.setStyleSheet(f"QSplitter::handle {{ background:{C['border']}; }}")
 
         self.left  = LeftPanel()
         self.right = RightPanel()
-        splitter.addWidget(self.left)
-        splitter.addWidget(self.right)
-        splitter.setSizes([420, 980])
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
+        self.splitter.addWidget(self.left)
+        self.splitter.addWidget(self.right)
+        self.splitter.setSizes([420, 980])
+        self.splitter.setStretchFactor(0, 0)
+        self.splitter.setStretchFactor(1, 1)
+        self._panel_sizes = [420, 980]
 
-        self.setCentralWidget(splitter)
+        self.setCentralWidget(self.splitter)
 
         self._sb = QStatusBar()
         self._sb.showMessage("Ready — adjust parameters and hit Render")
+        self.view_menu = QComboBox()
+        self.view_menu.setObjectName("statusCombo")
+        self.view_menu.addItems([
+            "View",
+            "Open Panels",
+            "Close Panels",
+            "Open Build Log",
+            "Close Build Log",
+        ])
+        self.view_menu.setFixedWidth(150)
+        self.view_menu.activated.connect(self._view_action)
+        self._sb.addPermanentWidget(self.view_menu)
         self.setStatusBar(self._sb)
 
         self.left.render_requested.connect(self._render)
         self.left.btn_stop.clicked.connect(self._stop)
+
+    def _view_action(self, idx):
+        action = self.view_menu.itemText(idx)
+        self.view_menu.setCurrentIndex(0)
+        if action == "Open Panels":
+            self.left.setVisible(True)
+            self.splitter.setSizes(self._panel_sizes)
+            self._sb.showMessage("Panels opened")
+        elif action == "Close Panels":
+            if self.left.isVisible():
+                sizes = self.splitter.sizes()
+                if sizes and sizes[0] > 0:
+                    self._panel_sizes = sizes
+            self.left.setVisible(False)
+            self._sb.showMessage("Panels closed")
+        elif action == "Open Build Log":
+            self.right.set_log_visible(True)
+            self._sb.showMessage("Build Log opened")
+        elif action == "Close Build Log":
+            self.right.set_log_visible(False)
+            self._sb.showMessage("Build Log closed")
 
     def _render(self, source: str):
         if self._thread and self._thread.isRunning():
