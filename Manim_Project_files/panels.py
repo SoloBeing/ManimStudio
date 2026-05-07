@@ -128,6 +128,24 @@ class LinearPanel(QGroupBox):
         v = QVBoxLayout(self)
         v.setSpacing(6)
 
+        v.addWidget(hdr("PRESET ANIMATION"))
+        self.preset = QComboBox()
+        for label, values in [
+            ("Custom", None),
+            ("Rotate 45 deg", (0.71, -0.71, 0.71, 0.71, 2.0, 1.0)),
+            ("Shear X", (1.0, 1.25, 0.0, 1.0, 1.0, 1.5)),
+            ("Shear Y", (1.0, 0.0, 1.25, 1.0, 1.5, 1.0)),
+            ("Reflect X Axis", (1.0, 0.0, 0.0, -1.0, 1.5, 1.0)),
+            ("Reflect Y Axis", (-1.0, 0.0, 0.0, 1.0, 1.5, 1.0)),
+            ("Projection X", (1.0, 0.0, 0.0, 0.0, 1.5, 1.5)),
+            ("Scale Stretch", (2.0, 0.0, 0.0, 0.5, 1.0, 1.5)),
+            ("Collapse Line", (1.0, 1.0, 0.5, 0.5, 1.0, 2.0)),
+        ]:
+            self.preset.addItem(label, values)
+        self.preset.currentIndexChanged.connect(self._apply_preset)
+        v.addWidget(self.preset)
+
+        v.addWidget(sep())
         v.addWidget(hdr("2x2 MATRIX"))
         g = QGridLayout()
         g.setSpacing(6)
@@ -164,6 +182,16 @@ class LinearPanel(QGroupBox):
         d_row.addStretch()
         v.addLayout(d_row)
         v.addStretch()
+
+    def _apply_preset(self, idx):
+        values = self.preset.itemData(idx)
+        if values is None:
+            return
+        a, b, c, d, vx, vy = values
+        for key, val in [("a", a), ("b", b), ("c", c), ("d", d)]:
+            self.spins[key].setValue(val)
+        self.vx.setValue(vx)
+        self.vy.setValue(vy)
 
     def source(self):
         return build_linear_source(
