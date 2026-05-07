@@ -9,6 +9,7 @@ from widgets import sep, hdr, Knob
 from builders import (
     build_trig_source, build_complex_source,
     build_linear_source, build_code_source,
+    build_streamlines_source,
 )
 
 
@@ -20,9 +21,9 @@ class TrigPanel(QGroupBox):
 
         v.addWidget(hdr("FUNCTIONS"))
         fn_row = QHBoxLayout()
-        self.cb_sin = QCheckBox("sin(x)"); self.cb_sin.setChecked(True)
-        self.cb_cos = QCheckBox("cos(x)"); self.cb_cos.setChecked(True)
-        self.cb_tan = QCheckBox("tan(x)")
+        self.cb_sin = QCheckBox("Sin(x)"); self.cb_sin.setChecked(True)
+        self.cb_cos = QCheckBox("Cos(x)"); self.cb_cos.setChecked(True)
+        self.cb_tan = QCheckBox("Tan(x)")
         for cb in [self.cb_sin, self.cb_cos, self.cb_tan]:
             fn_row.addWidget(cb)
         fn_row.addStretch()
@@ -147,15 +148,15 @@ class LinearPanel(QGroupBox):
         vrow = QHBoxLayout()
         self.vx = QDoubleSpinBox(); self.vx.setRange(-5, 5); self.vx.setValue(1.0); self.vx.setSingleStep(0.5)
         self.vy = QDoubleSpinBox(); self.vy.setRange(-5, 5); self.vy.setValue(1.0); self.vy.setSingleStep(0.5)
-        vrow.addWidget(QLabel("vx")); vrow.addWidget(self.vx)
-        vrow.addWidget(QLabel("vy")); vrow.addWidget(self.vy)
+        vrow.addWidget(QLabel("Vx")); vrow.addWidget(self.vx)
+        vrow.addWidget(QLabel("Vy")); vrow.addWidget(self.vy)
         vrow.addStretch()
         v.addLayout(vrow)
 
         v.addWidget(sep())
         v.addWidget(hdr("DISPLAY"))
         d_row = QHBoxLayout()
-        self.cb_det   = QCheckBox("det");   self.cb_det.setChecked(True)
+        self.cb_det   = QCheckBox("Det");   self.cb_det.setChecked(True)
         self.cb_basis = QCheckBox("Basis"); self.cb_basis.setChecked(True)
         self.cb_grid  = QCheckBox("Grid");  self.cb_grid.setChecked(True)
         for cb in [self.cb_det, self.cb_basis, self.cb_grid]:
@@ -206,8 +207,8 @@ class CodePanel(QGroupBox):
         v.addWidget(hdr("LANGUAGE"))
         self.lang = QComboBox()
         self.lang.addItems([
-            "python", "c", "cpp", "java", "javascript",
-            "typescript", "rust", "go", "bash", "sql",
+            "Python", "C", "Cpp", "Java", "JavaScript",
+            "TypeScript", "Rust", "Go", "Bash", "SQL",
         ])
         v.addWidget(self.lang)
 
@@ -224,7 +225,7 @@ class CodePanel(QGroupBox):
         bg_row = QHBoxLayout()
         bg_row.addWidget(QLabel("Background"))
         self.bg = QComboBox()
-        self.bg.addItems(["window", "rectangle"])
+        self.bg.addItems(["Window", "Rectangle"])
         bg_row.addWidget(self.bg)
         bg_row.addStretch()
         v.addLayout(bg_row)
@@ -251,6 +252,60 @@ class CodePanel(QGroupBox):
             add_line_numbers = self.cb_lineno.isChecked(),
             font_size        = self.font_size.value(),
             run_time         = self.run_time.value(),
+        )
+
+
+class StreamLinesPanel(QGroupBox):
+    def __init__(self):
+        super().__init__("StreamLines")
+        v = QVBoxLayout(self)
+        v.setSpacing(6)
+
+        v.addWidget(hdr("VECTOR FIELD"))
+        self.mode = QComboBox()
+        for label, key in [
+            ("Vortex", "vortex"),
+            ("Source", "source"),
+            ("Sink", "sink"),
+            ("Saddle", "saddle"),
+            ("Wave", "wave"),
+        ]:
+            self.mode.addItem(label, key)
+        v.addWidget(self.mode)
+
+        v.addWidget(sep())
+        v.addWidget(hdr("PARAMETERS"))
+        self.scale        = Knob("View Scale",    2.0, 7.0, 4.0, decimals=1, step=0.5)
+        self.spacing      = Knob("Line Spacing",  0.2, 1.2, 0.5, decimals=1, step=0.1)
+        self.flow_speed   = Knob("Flow Speed",    0.2, 4.0, 1.4, decimals=1, step=0.1)
+        self.virtual_time = Knob("Trail Length",  1.0, 8.0, 4.0, decimals=1, step=0.5)
+        self.stroke_width = Knob("Line Width",    0.5, 5.0, 1.6, decimals=1, step=0.1)
+        for k in [self.scale, self.spacing, self.flow_speed, self.virtual_time, self.stroke_width]:
+            v.addWidget(k)
+
+        v.addWidget(sep())
+        v.addWidget(hdr("DISPLAY"))
+        d_row = QHBoxLayout()
+        self.cb_axes = QCheckBox("Grid")
+        self.cb_axes.setChecked(True)
+        self.cb_animate = QCheckBox("Animate Flow")
+        self.cb_animate.setChecked(True)
+        d_row.addWidget(self.cb_axes)
+        d_row.addWidget(self.cb_animate)
+        d_row.addStretch()
+        v.addLayout(d_row)
+        v.addStretch()
+
+    def source(self):
+        return build_streamlines_source(
+            mode         = self.mode.currentData(),
+            scale        = self.scale.value(),
+            spacing      = self.spacing.value(),
+            flow_speed   = self.flow_speed.value(),
+            virtual_time = self.virtual_time.value(),
+            stroke_width = self.stroke_width.value(),
+            show_axes    = self.cb_axes.isChecked(),
+            animate      = self.cb_animate.isChecked(),
         )
 
 

@@ -14,7 +14,7 @@ from PyQt6.QtGui import QFont
 from theme import C, STYLE
 from widgets import sep
 from renderer import QUALITY, RENDERS_DIR, RenderThread
-from panels import TrigPanel, ComplexPanel, LinearPanel, CodePanel, PlaygroundPanel
+from panels import TrigPanel, ComplexPanel, LinearPanel, CodePanel, StreamLinesPanel, PlaygroundPanel
 
 
 class LeftPanel(QWidget):
@@ -37,7 +37,14 @@ class LeftPanel(QWidget):
         sel_row = QHBoxLayout()
         sel_row.addWidget(QLabel("Panel"))
         self.selector = QComboBox()
-        self.selector.addItems(["Trigonometry", "Complex Plane", "Linear Algebra", "Code Animation", "Playground"])
+        self.selector.addItems([
+            "Trigonometry",
+            "Complex Plane",
+            "Linear Algebra",
+            "Code Animation",
+            "StreamLines",
+            "Playground",
+        ])
         self.selector.currentIndexChanged.connect(self._switch)
         sel_row.addWidget(self.selector)
         sel_row.addStretch()
@@ -55,8 +62,9 @@ class LeftPanel(QWidget):
         self.complex    = ComplexPanel()
         self.linear     = LinearPanel()
         self.code       = CodePanel()
+        self.streams    = StreamLinesPanel()
         self.playground = PlaygroundPanel()
-        for p in [self.trig, self.complex, self.linear, self.code, self.playground]:
+        for p in [self.trig, self.complex, self.linear, self.code, self.streams, self.playground]:
             iv.addWidget(p)
         iv.addStretch()
         scroll.setWidget(inner)
@@ -121,13 +129,28 @@ class LeftPanel(QWidget):
         self.complex   .setVisible(idx == 1)
         self.linear    .setVisible(idx == 2)
         self.code      .setVisible(idx == 3)
-        self.playground.setVisible(idx == 4)
+        self.streams   .setVisible(idx == 4)
+        self.playground.setVisible(idx == 5)
 
     def _active(self):
-        return [self.trig, self.complex, self.linear, self.code, self.playground][self.selector.currentIndex()]
+        return [
+            self.trig,
+            self.complex,
+            self.linear,
+            self.code,
+            self.streams,
+            self.playground,
+        ][self.selector.currentIndex()]
 
     def current_label(self):
-        return ["trigonometry", "complex_plane", "linear_algebra", "code_animation", "playground"][self.selector.currentIndex()]
+        return [
+            "trigonometry",
+            "complex_plane",
+            "linear_algebra",
+            "code_animation",
+            "streamlines",
+            "playground",
+        ][self.selector.currentIndex()]
 
     def _render(self):
         self.render_requested.emit(self._active().source())

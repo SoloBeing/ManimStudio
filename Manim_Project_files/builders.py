@@ -275,3 +275,94 @@ def build_code_source(code_str, language, anim, background, add_line_numbers, fo
 
     L.append("        self.wait(1.5)")
     return _join(L)
+
+
+def build_streamlines_source(mode, scale, spacing, flow_speed, virtual_time, stroke_width, show_axes, animate):
+    mode = str(mode or "vortex").strip().lower()
+    field_map = {
+        "vortex": (
+            "Vortex",
+            "np.array([-p[1], p[0], 0])",
+            "Rotating field around the origin",
+        ),
+        "source": (
+            "Source",
+            "np.array([p[0], p[1], 0]) / (np.linalg.norm(p[:2]) + 0.6)",
+            "Outward radial flow",
+        ),
+        "sink": (
+            "Sink",
+            "-np.array([p[0], p[1], 0]) / (np.linalg.norm(p[:2]) + 0.6)",
+            "Inward radial flow",
+        ),
+        "saddle": (
+            "Saddle",
+            "np.array([p[0], -p[1], 0])",
+            "Hyperbolic saddle field",
+        ),
+        "wave": (
+            "Wave",
+            "np.array([np.sin(p[1]), np.cos(p[0]), 0])",
+            "Sinusoidal wave field",
+        ),
+    }
+    title, expr, subtitle = field_map[mode]
+    step = max(0.2, float(spacing))
+
+    L = [
+        "from manim import *",
+        "import numpy as np",
+        "",
+        "class ManimScene(Scene):",
+        "    def construct(self):",
+        f'        title = Text("{title} StreamLines", font_size=26, color=TEAL).to_edge(UP)',
+        f'        subtitle = Text("{subtitle}", font_size=16, color=GREY_B)',
+        "        subtitle.next_to(title, DOWN, buff=0.12)",
+        "        self.play(FadeIn(title), FadeIn(subtitle), run_time=0.7)",
+        "",
+        "        def field(p):",
+        f"            return {expr}",
+        "",
+        "        plane = NumberPlane(",
+        f"            x_range=[{-scale:.2f}, {scale:.2f}, 1],",
+        f"            y_range=[{-scale:.2f}, {scale:.2f}, 1],",
+        "            background_line_style=dict(stroke_color=BLUE_E, stroke_opacity=0.25),",
+        "        )",
+    ]
+
+    if show_axes:
+        L.append("        self.play(FadeIn(plane), run_time=0.6)")
+
+    L += [
+        "        stream_lines = StreamLines(",
+        "            field,",
+        f"            x_range=[{-scale:.2f}, {scale:.2f}, {step:.2f}],",
+        f"            y_range=[{-scale:.2f}, {scale:.2f}, {step:.2f}],",
+        "            colors=[BLUE, TEAL, GREEN, YELLOW, RED],",
+        "            min_color_scheme_value=0,",
+        f"            max_color_scheme_value={max(1.0, scale):.2f},",
+        "            color_scheme=lambda p: np.linalg.norm(field(p)),",
+        "            dt=0.05,",
+        f"            virtual_time={virtual_time:.2f},",
+        "            max_anchors_per_line=70,",
+        f"            stroke_width={stroke_width:.2f},",
+        "            opacity=0.9,",
+        "        )",
+    ]
+
+    if animate:
+        L += [
+            "        self.add(stream_lines)",
+            "        stream_lines.start_animation(",
+            "            warm_up=False,",
+            f"            flow_speed={flow_speed:.2f},",
+            "            time_width=0.45,",
+            "        )",
+            "        self.wait(4)",
+            "        self.play(stream_lines.end_animation(), run_time=0.8)",
+        ]
+    else:
+        L.append("        self.play(stream_lines.create(), run_time=2.5)")
+
+    L.append("        self.wait(1.5)")
+    return _join(L)
