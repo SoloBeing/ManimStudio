@@ -34,9 +34,7 @@ class LeftPanel(QWidget):
         root.addWidget(brand)
         root.addWidget(sep())
 
-        sel_row = QHBoxLayout()
-        sel_row.addWidget(QLabel("Panel"))
-        self.selector = QComboBox()
+        self.selector = QComboBox(self)
         self.selector.addItems([
             "Trigonometry",
             "Complex Plane",
@@ -46,9 +44,7 @@ class LeftPanel(QWidget):
             "Playground",
         ])
         self.selector.currentIndexChanged.connect(self._switch)
-        sel_row.addWidget(self.selector)
-        sel_row.addStretch()
-        root.addLayout(sel_row)
+        self.selector.hide()
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -285,6 +281,14 @@ class MainWindow(QMainWindow):
 
         self._sb = QStatusBar()
         self._sb.showMessage("Ready — adjust parameters and hit Render")
+        self.panel_selector = QComboBox()
+        self.panel_selector.setObjectName("statusCombo")
+        for i in range(self.left.selector.count()):
+            self.panel_selector.addItem(self.left.selector.itemText(i))
+        self.panel_selector.setFixedWidth(165)
+        self.panel_selector.currentIndexChanged.connect(self._select_panel)
+        self.left.selector.currentIndexChanged.connect(self._sync_panel_selector)
+
         self.view_menu = QComboBox()
         self.view_menu.setObjectName("statusCombo")
         self.view_menu.addItems([
@@ -296,11 +300,27 @@ class MainWindow(QMainWindow):
         ])
         self.view_menu.setFixedWidth(150)
         self.view_menu.activated.connect(self._view_action)
+
+        self._sb.addPermanentWidget(self.panel_selector)
         self._sb.addPermanentWidget(self.view_menu)
         self.setStatusBar(self._sb)
 
         self.left.render_requested.connect(self._render)
         self.left.btn_stop.clicked.connect(self._stop)
+
+    def _select_panel(self, idx):
+        self.left.selector.setCurrentIndex(idx)
+        if not self.left.isVisible():
+            self.left.setVisible(True)
+            self.splitter.setSizes(self._panel_sizes)
+        self._sb.showMessage(f"Panel: {self.panel_selector.currentText()}")
+
+    def _sync_panel_selector(self, idx):
+        if self.panel_selector.currentIndex() == idx:
+            return
+        self.panel_selector.blockSignals(True)
+        self.panel_selector.setCurrentIndex(idx)
+        self.panel_selector.blockSignals(False)
 
     def _view_action(self, idx):
         action = self.view_menu.itemText(idx)
