@@ -236,6 +236,104 @@ def build_linear_source(a, b, c, d, vx, vy, show_det, show_basis, show_grid):
     return _join(L)
 
 
+def build_nonlinear_source(mode, intensity, scale, show_grid, show_points):
+    mode = str(mode or "swirl").strip().lower()
+    preset_map = {
+        "swirl": (
+            "Swirl",
+            "Nonlinear rotation that increases with radius",
+            [
+                "            r = np.linalg.norm(p[:2])",
+                f"            angle = {intensity:.4f} * r * 0.35",
+                "            c, s = np.cos(angle), np.sin(angle)",
+                "            x, y = p[0], p[1]",
+                "            return np.array([c*x - s*y, s*x + c*y, 0])",
+            ],
+        ),
+        "wave": (
+            "Wave Warp",
+            "Sinusoidal displacement across the grid",
+            [
+                f"            x = p[0] + {intensity:.4f} * 0.35 * np.sin(1.4 * p[1])",
+                f"            y = p[1] + {intensity:.4f} * 0.35 * np.sin(1.4 * p[0])",
+                "            return np.array([x, y, 0])",
+            ],
+        ),
+        "bulge": (
+            "Bulge",
+            "Radial expansion strongest near the origin",
+            [
+                "            r2 = p[0]*p[0] + p[1]*p[1]",
+                f"            factor = 1 + {intensity:.4f} * np.exp(-0.18 * r2)",
+                "            return np.array([factor*p[0], factor*p[1], 0])",
+            ],
+        ),
+        "pinch": (
+            "Pinch",
+            "Radial compression strongest near the origin",
+            [
+                "            r2 = p[0]*p[0] + p[1]*p[1]",
+                f"            factor = 1 - 0.65 * {intensity:.4f} * np.exp(-0.20 * r2)",
+                "            return np.array([factor*p[0], factor*p[1], 0])",
+            ],
+        ),
+        "complex_square": (
+            "Complex Square",
+            "Maps z to a scaled z squared shape",
+            [
+                "            z = complex(p[0], p[1])",
+                f"            w = {0.18 * intensity:.4f} * z*z",
+                "            return np.array([w.real, w.imag, 0])",
+            ],
+        ),
+    }
+    title, subtitle, body = preset_map[mode]
+
+    L = [
+        "from manim import *",
+        "import numpy as np",
+        "",
+        "class ManimScene(Scene):",
+        "    def construct(self):",
+        f'        title = Text("{title}", font_size=26, color=TEAL).to_edge(UP)',
+        f'        subtitle = Text("{subtitle}", font_size=16, color=GREY_B)',
+        "        subtitle.next_to(title, DOWN, buff=0.12)",
+        "        self.play(FadeIn(title), FadeIn(subtitle), run_time=0.7)",
+        "",
+        "        def warp(p):",
+        *body,
+        "",
+        "        grid = NumberPlane(",
+        f"            x_range=[{-scale:.2f}, {scale:.2f}, 1],",
+        f"            y_range=[{-scale:.2f}, {scale:.2f}, 1],",
+        "            background_line_style=dict(stroke_color=BLUE_E, stroke_opacity=0.45),",
+        "        )",
+        "        warped_grid = grid.copy().apply_function(warp)",
+        "        warped_grid.set_style(stroke_color=TEAL, stroke_opacity=0.75)",
+    ]
+
+    if show_grid:
+        L.append("        self.play(Create(grid), run_time=0.8)")
+
+    if show_points:
+        L += [
+            "        pts = VGroup()",
+            f"        for x in np.linspace({-scale + 1:.2f}, {scale - 1:.2f}, 5):",
+            f"            for y in np.linspace({-scale + 1:.2f}, {scale - 1:.2f}, 5):",
+            "                pts.add(Dot(grid.c2p(x, y), radius=0.045, color=YELLOW))",
+            "        warped_pts = pts.copy().apply_function(warp)",
+            "        self.play(FadeIn(pts), run_time=0.5)",
+            "        self.play(Transform(grid, warped_grid), Transform(pts, warped_pts), run_time=2.4)",
+        ]
+    else:
+        L.append("        self.play(Transform(grid, warped_grid), run_time=2.4)")
+
+    L += [
+        "        self.wait(1.5)",
+    ]
+    return _join(L)
+
+
 def build_code_source(code_str, language, anim, background, add_line_numbers, font_size, run_time):
     safe = repr(code_str)   # escapes newlines, quotes, backslashes safely
     L = [

@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (
-    QGroupBox, QVBoxLayout, QHBoxLayout, QGridLayout,
+    QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QCheckBox, QComboBox, QDoubleSpinBox, QTextEdit, QPushButton,
 )
 from PyQt6.QtGui import QFont
@@ -8,7 +8,7 @@ from theme import C
 from widgets import sep, hdr, Knob
 from builders import (
     build_trig_source, build_complex_source,
-    build_linear_source, build_code_source,
+    build_linear_source, build_nonlinear_source, build_code_source,
     build_streamlines_source,
 )
 
@@ -122,10 +122,15 @@ class ComplexPanel(QGroupBox):
         )
 
 
-class LinearPanel(QGroupBox):
+class LinearPanel(QWidget):
     def __init__(self):
-        super().__init__("Linear Algebra")
-        v = QVBoxLayout(self)
+        super().__init__()
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(8)
+
+        linear_box = QGroupBox("Linear Algebra")
+        v = QVBoxLayout(linear_box)
         v.setSpacing(6)
 
         v.addWidget(hdr("PRESET ANIMATION"))
@@ -181,7 +186,49 @@ class LinearPanel(QGroupBox):
             d_row.addWidget(cb)
         d_row.addStretch()
         v.addLayout(d_row)
-        v.addStretch()
+        root.addWidget(linear_box)
+
+        nonlinear_box = QGroupBox("Non-Linear Transformations")
+        nv = QVBoxLayout(nonlinear_box)
+        nv.setSpacing(6)
+
+        self.cb_nonlinear = QCheckBox("Render Non-Linear Transformation")
+        nv.addWidget(self.cb_nonlinear)
+
+        nv.addWidget(sep())
+        nv.addWidget(hdr("PRESET"))
+        self.nl_preset = QComboBox()
+        for label, key in [
+            ("Swirl", "swirl"),
+            ("Wave Warp", "wave"),
+            ("Bulge", "bulge"),
+            ("Pinch", "pinch"),
+            ("Complex Square", "complex_square"),
+        ]:
+            self.nl_preset.addItem(label, key)
+        nv.addWidget(self.nl_preset)
+
+        nv.addWidget(sep())
+        nv.addWidget(hdr("PARAMETERS"))
+        self.nl_intensity = Knob("Intensity", 0.2, 3.0, 1.0, decimals=1, step=0.1)
+        self.nl_scale     = Knob("View Scale", 2.0, 6.0, 4.0, decimals=1, step=0.5)
+        nv.addWidget(self.nl_intensity)
+        nv.addWidget(self.nl_scale)
+
+        nv.addWidget(sep())
+        nv.addWidget(hdr("DISPLAY"))
+        nl_row = QHBoxLayout()
+        self.cb_nl_grid = QCheckBox("Grid")
+        self.cb_nl_grid.setChecked(True)
+        self.cb_nl_points = QCheckBox("Points")
+        self.cb_nl_points.setChecked(True)
+        nl_row.addWidget(self.cb_nl_grid)
+        nl_row.addWidget(self.cb_nl_points)
+        nl_row.addStretch()
+        nv.addLayout(nl_row)
+
+        root.addWidget(nonlinear_box)
+        root.addStretch()
 
     def _apply_preset(self, idx):
         values = self.preset.itemData(idx)
@@ -194,6 +241,15 @@ class LinearPanel(QGroupBox):
         self.vy.setValue(vy)
 
     def source(self):
+        if self.cb_nonlinear.isChecked():
+            return build_nonlinear_source(
+                mode        = self.nl_preset.currentData(),
+                intensity   = self.nl_intensity.value(),
+                scale       = self.nl_scale.value(),
+                show_grid   = self.cb_nl_grid.isChecked(),
+                show_points = self.cb_nl_points.isChecked(),
+            )
+
         return build_linear_source(
             a = self.spins["a"].value(), b = self.spins["b"].value(),
             c = self.spins["c"].value(), d = self.spins["d"].value(),
