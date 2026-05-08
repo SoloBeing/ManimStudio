@@ -3,6 +3,7 @@ name: Build ManimStudio
 on:
   push:
     branches: [master, main]
+    tags: ['v*']
   workflow_dispatch:
 
 jobs:
@@ -80,9 +81,43 @@ jobs:
             --workpath "build" `
             ManimStudio.spec
 
+      - name: Zip artifact (Linux / macOS)
+        if: runner.os != 'Windows'
+        run: zip -r "${{ github.workspace }}/ManimStudio-${{ matrix.name }}.zip" "${{ github.workspace }}/dist/Manim Studio/"
+
+      - name: Zip artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path "${{ github.workspace }}/dist/Manim Studio/" -DestinationPath "${{ github.workspace }}/ManimStudio-${{ matrix.name }}.zip"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ManimStudio-${{ matrix.name }}
-          path: dist/Manim Studio/
+          path: ManimStudio-${{ matrix.name }}.zip
           if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}" \
+            --title "ManimStudio ${{ github.ref_name }}" \
+            --generate-notes \
+            artifacts/ManimStudio-linux/ManimStudio-linux.zip \
+            artifacts/ManimStudio-macos/ManimStudio-macos.zip \
+            artifacts/ManimStudio-windows/ManimStudio-windows.zip
