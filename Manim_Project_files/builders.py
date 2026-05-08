@@ -410,7 +410,7 @@ def build_code_source(
         anim_lines = [f"            self.play(Create(code), run_time={run_time:.1f})"]
     elif anim == "Typewriter":
         anim_lines = [
-            "            self.play(FadeIn(code.background_mobject), run_time=0.4)",
+            "            self.play(FadeIn(code.background), run_time=0.4)",
             "            self.play(",
             "                LaggedStart(",
             "                    *[Write(line) for line in code.code_lines],",
