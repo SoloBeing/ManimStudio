@@ -398,47 +398,59 @@ def build_code_source(
     safe = repr(code_str)   # escapes newlines, quotes, backslashes safely
     language = str(language or "python").lower()
     background = str(background or "window").lower()
-    primary_corner, _, _ = _text_position(text_position)
-    txt_col = _text_color(text_color)
     font_arg = repr(text_font or "Consolas")
+
+    if anim == "Write":
+        anim_lines = [f"            self.play(Write(code), run_time={run_time:.1f})"]
+    elif anim == "FadeIn":
+        anim_lines = [f"            self.play(FadeIn(code), run_time={run_time:.1f})"]
+    elif anim == "FadeIn Up":
+        anim_lines = [f"            self.play(FadeIn(code, shift=UP * 0.4), run_time={run_time:.1f})"]
+    elif anim == "Create":
+        anim_lines = [f"            self.play(Create(code), run_time={run_time:.1f})"]
+    elif anim == "Typewriter":
+        anim_lines = [
+            "            self.play(FadeIn(code.background_mobject), run_time=0.4)",
+            "            self.play(",
+            "                LaggedStart(",
+            "                    *[Write(line) for line in code.code_lines],",
+            "                    lag_ratio=0.5,",
+            "                ),",
+            f"                run_time={run_time:.1f},",
+            "            )",
+        ]
+    else:
+        anim_lines = [f"            self.play(FadeIn(code), run_time={run_time:.1f})"]
+
     L = [
         "from manim import *",
         "",
         "class ManimScene(Scene):",
         "    def construct(self):",
-        "        code = Code(",
-        f"            code_string={safe},",
-        f"            language={repr(language)},",
-        f"            background={repr(background)},",
-        f"            add_line_numbers={add_line_numbers},",
-        f"            paragraph_config={{'font_size': {font_size:.0f}, 'font': {font_arg}}},",
-        "        )",
-        f"        code.set_color({txt_col})",
-        "        code.scale_to_fit_width(12)",
-        f"        code.to_corner({primary_corner})",
+        f"        _raw = {safe}",
+        "        _lines = _raw.split('\\n')",
+        "        _chunks = ['\\n'.join(_lines[i:i+13]) for i in range(0, len(_lines), 13)]",
+        "        _prev = None",
+        "        for _i, _chunk_str in enumerate(_chunks):",
+        "            code = Code(",
+        "                code_string=_chunk_str,",
+        f"                language={repr(language)},",
+        f"                background={repr(background)},",
+        f"                add_line_numbers={add_line_numbers},",
+        "                line_numbers_from=_i * 13 + 1,",
+        f"                paragraph_config={{'font_size': {font_size:.0f}, 'font': {font_arg}}},",
+        "            )",
+        "            code.scale_to_fit_width(13)",
+        "            if code.height > 7.2:",
+        "                code.scale_to_fit_height(7.2)",
+        "            code.center()",
+        "            if _prev is not None:",
+        "                self.play(FadeOut(_prev), run_time=0.5)",
+    ] + anim_lines + [
+        "            self.wait(1.5)",
+        "            _prev = code",
     ]
 
-    if anim == "Write":
-        L.append(f"        self.play(Write(code), run_time={run_time:.1f})")
-    elif anim == "FadeIn":
-        L.append(f"        self.play(FadeIn(code), run_time={run_time:.1f})")
-    elif anim == "FadeIn Up":
-        L.append(f"        self.play(FadeIn(code, shift=UP * 0.4), run_time={run_time:.1f})")
-    elif anim == "Create":
-        L.append(f"        self.play(Create(code), run_time={run_time:.1f})")
-    elif anim == "Typewriter":
-        L += [
-            "        self.play(FadeIn(code.background_mobject), run_time=0.4)",
-            "        self.play(",
-            "            LaggedStart(",
-            "                *[Write(line) for line in code.code_lines],",
-            "                lag_ratio=0.5,",
-            "            ),",
-            f"            run_time={run_time:.1f},",
-            "        )",
-        ]
-
-    L.append("        self.wait(1.5)")
     return _join(L)
 
 
