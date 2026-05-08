@@ -1,11 +1,11 @@
 from PyQt6.QtWidgets import (
     QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QGridLayout,
-    QLabel, QCheckBox, QComboBox, QDoubleSpinBox, QTextEdit, QPushButton,
+    QLabel, QCheckBox, QComboBox, QTextEdit, QPushButton,
 )
 from PyQt6.QtGui import QFont
 
 from theme import C
-from widgets import sep, hdr, Knob
+from widgets import sep, hdr, Knob, SpinBox
 from builders import (
     build_trig_source, build_complex_source,
     build_linear_source, build_nonlinear_source, build_code_source,
@@ -214,7 +214,7 @@ class LinearPanel(QWidget):
         positions  = [("a",0,0), ("b",0,2), ("c",1,0), ("d",1,2)]
         for key, row_, col_ in positions:
             g.addWidget(QLabel(key), row_, col_)
-            s = QDoubleSpinBox()
+            s = SpinBox()
             s.setRange(-9, 9); s.setSingleStep(0.25); s.setDecimals(2)
             s.setValue(defaults[key])
             self.spins[key] = s
@@ -224,8 +224,8 @@ class LinearPanel(QWidget):
         v.addWidget(sep())
         v.addWidget(hdr("INPUT VECTOR"))
         vrow = QHBoxLayout()
-        self.vx = QDoubleSpinBox(); self.vx.setRange(-5, 5); self.vx.setValue(1.0); self.vx.setSingleStep(0.5)
-        self.vy = QDoubleSpinBox(); self.vy.setRange(-5, 5); self.vy.setValue(1.0); self.vy.setSingleStep(0.5)
+        self.vx = SpinBox(); self.vx.setRange(-5, 5); self.vx.setValue(1.0); self.vx.setSingleStep(0.5)
+        self.vy = SpinBox(); self.vy.setRange(-5, 5); self.vy.setValue(1.0); self.vy.setSingleStep(0.5)
         vrow.addWidget(QLabel("Vx")); vrow.addWidget(self.vx)
         vrow.addWidget(QLabel("Vy")); vrow.addWidget(self.vy)
         vrow.addStretch()

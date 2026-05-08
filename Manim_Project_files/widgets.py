@@ -17,6 +17,32 @@ def hdr(text):
     return l
 
 
+class SpinBox(QDoubleSpinBox):
+    """SpinBox that only responds to wheel scroll when it has been clicked."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+
+    def wheelEvent(self, event):
+        if self.hasFocus():
+            super().wheelEvent(event)
+        else:
+            event.ignore()
+
+
+class _ScrollGuardSlider(QSlider):
+    """Slider that only responds to wheel scroll when it has been clicked."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+
+    def wheelEvent(self, event):
+        if self.hasFocus():
+            super().wheelEvent(event)
+        else:
+            event.ignore()
+
+
 class Knob(QWidget):
     """Slider + SpinBox in one row for one float parameter."""
     changed = pyqtSignal(float)
@@ -34,12 +60,12 @@ class Knob(QWidget):
         lbl.setFixedWidth(110)
         lbl.setObjectName("dim")
 
-        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider = _ScrollGuardSlider(Qt.Orientation.Horizontal)
         self.slider.setMinimum(int(lo      * self._scale))
         self.slider.setMaximum(int(hi      * self._scale))
         self.slider.setValue  (int(default * self._scale))
 
-        self.spin = QDoubleSpinBox()
+        self.spin = SpinBox()
         self.spin.setRange(lo, hi)
         self.spin.setDecimals(decimals)
         self.spin.setSingleStep(step)
