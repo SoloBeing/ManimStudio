@@ -1,17 +1,20 @@
-import os, shutil
+import os, shutil, platform
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QSplitter, QTextEdit,
     QScrollArea, QComboBox, QSizePolicy, QStatusBar,
-    QFileDialog,
+    QFileDialog, QMessageBox,
 )
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtMultimediaWidgets import QVideoWidget
-from PyQt6.QtCore import Qt, pyqtSignal, QUrl
+from PyQt6.QtCore import Qt, pyqtSignal, QUrl, QTimer
 from PyQt6.QtGui import QFont
 
 from theme import C, STYLE
+
+_LATEX_WARNED_FLAG = os.path.join(os.path.expanduser("~"), "ManimStudio", "latex_warned")
+_LATEX_READY_FLAG  = os.path.join(os.path.expanduser("~"), "ManimStudio", "latex_ready_shown")
 from widgets import sep
 from renderer import QUALITY, RENDERS_DIR, RenderThread
 from panels import TrigPanel, ComplexPanel, LinearPanel, CodePanel, StreamLinesPanel, PlaygroundPanel
@@ -203,7 +206,7 @@ class RightPanel(QWidget):
 
         log_hdr = QHBoxLayout()
         log_hdr.addWidget(QLabel("BUILD LOG"))
-        self.btn_log = QPushButton("hide")
+        self.btn_log = QPushButton("Hide")
         self.btn_log.setFixedWidth(60)
         self.btn_log.clicked.connect(self._toggle_log)
         log_hdr.addStretch()
@@ -238,7 +241,7 @@ class RightPanel(QWidget):
 
     def set_log_visible(self, visible):
         self.log.setVisible(visible)
-        self.btn_log.setText("hide" if visible else "show")
+        self.btn_log.setText("Hide" if visible else "Show")
 
     def load(self, path):
         self.player.setSource(QUrl.fromLocalFile(path))
@@ -307,6 +310,52 @@ class MainWindow(QMainWindow):
 
         self.left.render_requested.connect(self._render)
         self.left.btn_stop.clicked.connect(self._stop)
+
+        QTimer.singleShot(300, self._check_latex)
+
+    def _check_latex(self):
+        latex_ok = shutil.which("latex") and shutil.which("dvisvgm")
+        _dir = os.path.dirname(_LATEX_WARNED_FLAG)
+
+        if latex_ok:
+            if os.path.exists(_LATEX_READY_FLAG):
+                return
+            msg = QMessageBox(self)
+            msg.setWindowTitle("LaTeX Ready")
+            msg.setIcon(QMessageBox.Icon.Information)
+            msg.setText(
+                "LaTeX is installed and ready.<br><br>"
+                "<tt>MathTex()</tt> and <tt>Tex()</tt> objects are fully supported."
+            )
+            msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+            msg.exec()
+            os.makedirs(_dir, exist_ok=True)
+            open(_LATEX_READY_FLAG, "w").close()
+        else:
+            if os.path.exists(_LATEX_WARNED_FLAG):
+                return
+            missing = [t for t in ("latex", "dvisvgm") if not shutil.which(t)]
+            sys_name = platform.system()
+            if sys_name == "Windows":
+                cmd = "winget install TinyTeX-org.TinyTeX"
+            elif sys_name == "Darwin":
+                cmd = 'curl -sL "https://yihui.org/tinytex/install-bin-unix.sh" | sh'
+            else:
+                cmd = 'wget -qO- "https://yihui.org/tinytex/install-bin-unix.sh" | sh'
+            msg = QMessageBox(self)
+            msg.setWindowTitle("LaTeX Not Found")
+            msg.setIcon(QMessageBox.Icon.Warning)
+            msg.setText(
+                f"<b>{', '.join(missing)}</b> not found on PATH.<br><br>"
+                "<tt>Text()</tt> animations work fine without it — LaTeX is only needed "
+                "for <tt>MathTex()</tt> and <tt>Tex()</tt> objects.<br><br>"
+                "Install <b>TinyTeX</b> to enable math rendering:<br>"
+                f"<tt>{cmd}</tt>"
+            )
+            msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+            msg.exec()
+            os.makedirs(_dir, exist_ok=True)
+            open(_LATEX_WARNED_FLAG, "w").close()
 
     def _select_panel(self, idx):
         self.left.selector.setCurrentIndex(idx)
