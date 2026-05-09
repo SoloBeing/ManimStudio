@@ -1,11 +1,11 @@
 from PyQt6.QtWidgets import (
     QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QGridLayout,
-    QLabel, QCheckBox, QComboBox, QTextEdit, QPushButton,
+    QLabel, QCheckBox, QLineEdit, QTextEdit, QPushButton,
 )
 from PyQt6.QtGui import QFont
 
 from theme import C
-from widgets import sep, hdr, Knob, SpinBox
+from widgets import sep, hdr, Knob, SpinBox, ComboBox
 from builders import (
     build_trig_source, build_complex_source,
     build_linear_source, build_nonlinear_source, build_code_source,
@@ -35,9 +35,12 @@ def add_text_controls(layout, default_position="top_left", default_color="white"
     row = QGridLayout()
     row.setSpacing(6)
 
-    pos = QComboBox()
-    col = QComboBox()
-    font = QComboBox()
+    text_inp = QLineEdit()
+    text_inp.setPlaceholderText("Custom label…")
+
+    pos = ComboBox()
+    col = ComboBox()
+    font = ComboBox()
 
     for label, key in TEXT_POSITION_OPTIONS:
         pos.addItem(label, key)
@@ -50,14 +53,29 @@ def add_text_controls(layout, default_position="top_left", default_color="white"
         if idx >= 0:
             combo.setCurrentIndex(idx)
 
-    row.addWidget(QLabel("Position"), 0, 0)
-    row.addWidget(pos, 0, 1)
-    row.addWidget(QLabel("Color"), 1, 0)
-    row.addWidget(col, 1, 1)
-    row.addWidget(QLabel("Font"), 2, 0)
-    row.addWidget(font, 2, 1)
+    row.addWidget(QLabel("Label"), 0, 0)
+    row.addWidget(text_inp, 0, 1)
+    row.addWidget(QLabel("Position"), 1, 0)
+    row.addWidget(pos, 1, 1)
+    row.addWidget(QLabel("Color"), 2, 0)
+    row.addWidget(col, 2, 1)
+    size_inp = SpinBox()
+    size_inp.setRange(8, 72)
+    size_inp.setDecimals(0)
+    size_inp.setSingleStep(1)
+    size_inp.setValue(22)
+    size_inp.setFixedWidth(72)
+
+    row.addWidget(QLabel("Font"), 3, 0)
+    row.addWidget(font, 3, 1)
+    cb_labels = QCheckBox("Preset Labels")
+    cb_labels.setChecked(True)
+
+    row.addWidget(QLabel("Size"), 4, 0)
+    row.addWidget(size_inp, 4, 1)
+    row.addWidget(cb_labels, 5, 0, 1, 2)
     layout.addLayout(row)
-    return pos, col, font
+    return pos, col, font, text_inp, size_inp, cb_labels
 
 
 class TrigPanel(QGroupBox):
@@ -99,13 +117,13 @@ class TrigPanel(QGroupBox):
         anim_lbl = QLabel("Animation style")
         anim_lbl.setObjectName("comboLabel")
         a_row.addWidget(anim_lbl)
-        self.anim = QComboBox()
+        self.anim = ComboBox()
         self.anim.setObjectName("animationCombo")
         self.anim.addItems(["Create", "FadeIn", "Write"])
         a_row.addWidget(self.anim)
         a_row.addStretch()
         v.addLayout(a_row)
-        self.text_pos, self.text_col, self.text_font = add_text_controls(v, "top_right", "white")
+        self.text_pos, self.text_col, self.text_font, self.text_inp, self.text_size, self.text_labels = add_text_controls(v, "top_right", "white")
         v.addStretch()
 
     def source(self):
@@ -120,9 +138,12 @@ class TrigPanel(QGroupBox):
             xr = self.xrng.value(),
             show_grid = self.cb_grid.isChecked(),
             anim      = self.anim.currentText(),
-            text_position = self.text_pos.currentData(),
-            text_color    = self.text_col.currentData(),
-            text_font     = self.text_font.currentText(),
+            text_position      = self.text_pos.currentData(),
+            text_color         = self.text_col.currentData(),
+            text_font          = self.text_font.currentText(),
+            text_content       = self.text_inp.text(),
+            text_font_size     = int(self.text_size.value()),
+            show_preset_labels = self.text_labels.isChecked(),
         )
 
 
@@ -133,7 +154,7 @@ class ComplexPanel(QGroupBox):
         v.setSpacing(6)
 
         v.addWidget(hdr("FUNCTION MODE"))
-        self.mode = QComboBox()
+        self.mode = ComboBox()
         self.mode.addItems([
             "f(z) = z^2",
             "f(z) = z^3 - 1",
@@ -160,7 +181,7 @@ class ComplexPanel(QGroupBox):
         d_row.addWidget(self.cb_arrows)
         d_row.addStretch()
         v.addLayout(d_row)
-        self.text_pos, self.text_col, self.text_font = add_text_controls(v, "top_left", "teal")
+        self.text_pos, self.text_col, self.text_font, self.text_inp, self.text_size, self.text_labels = add_text_controls(v, "top_left", "teal")
         v.addStretch()
 
     def source(self):
@@ -171,9 +192,12 @@ class ComplexPanel(QGroupBox):
             scale       = self.scale.value(),
             n_pts       = self.n_pts.value(),
             show_arrows = self.cb_arrows.isChecked(),
-            text_position = self.text_pos.currentData(),
-            text_color    = self.text_col.currentData(),
-            text_font     = self.text_font.currentText(),
+            text_position      = self.text_pos.currentData(),
+            text_color         = self.text_col.currentData(),
+            text_font          = self.text_font.currentText(),
+            text_content       = self.text_inp.text(),
+            text_font_size     = int(self.text_size.value()),
+            show_preset_labels = self.text_labels.isChecked(),
         )
 
 
@@ -189,7 +213,7 @@ class LinearPanel(QWidget):
         v.setSpacing(6)
 
         v.addWidget(hdr("PRESET ANIMATION"))
-        self.preset = QComboBox()
+        self.preset = ComboBox()
         for label, values in [
             ("Custom", None),
             ("Rotate 45 deg", (0.71, -0.71, 0.71, 0.71, 2.0, 1.0)),
@@ -242,7 +266,7 @@ class LinearPanel(QWidget):
         d_row.addStretch()
         v.addLayout(d_row)
 
-        self.text_pos, self.text_col, self.text_font = add_text_controls(v, "top_left", "white")
+        self.text_pos, self.text_col, self.text_font, self.text_inp, self.text_size, self.text_labels = add_text_controls(v, "top_left", "white")
         root.addWidget(linear_box)
 
         nonlinear_box = QGroupBox("Non-Linear Transformations")
@@ -254,7 +278,7 @@ class LinearPanel(QWidget):
 
         nv.addWidget(sep())
         nv.addWidget(hdr("PRESET"))
-        self.nl_preset = QComboBox()
+        self.nl_preset = ComboBox()
         for label, key in [
             ("Swirl", "swirl"),
             ("Wave Warp", "wave"),
@@ -284,7 +308,7 @@ class LinearPanel(QWidget):
         nl_row.addStretch()
         nv.addLayout(nl_row)
 
-        self.nl_text_pos, self.nl_text_col, self.nl_text_font = add_text_controls(nv, "top_right", "teal")
+        self.nl_text_pos, self.nl_text_col, self.nl_text_font, self.nl_text_inp, self.nl_text_size, self.nl_text_labels = add_text_controls(nv, "top_right", "teal")
 
         root.addWidget(nonlinear_box)
         root.addStretch()
@@ -307,9 +331,12 @@ class LinearPanel(QWidget):
                 scale       = self.nl_scale.value(),
                 show_grid   = self.cb_nl_grid.isChecked(),
                 show_points = self.cb_nl_points.isChecked(),
-                text_position = self.nl_text_pos.currentData(),
-                text_color    = self.nl_text_col.currentData(),
-                text_font     = self.nl_text_font.currentText(),
+                text_position      = self.nl_text_pos.currentData(),
+                text_color         = self.nl_text_col.currentData(),
+                text_font          = self.nl_text_font.currentText(),
+                text_content       = self.nl_text_inp.text(),
+                text_font_size     = int(self.nl_text_size.value()),
+                show_preset_labels = self.nl_text_labels.isChecked(),
             )
 
         return build_linear_source(
@@ -319,9 +346,12 @@ class LinearPanel(QWidget):
             show_det   = self.cb_det.isChecked(),
             show_basis = self.cb_basis.isChecked(),
             show_grid  = self.cb_grid.isChecked(),
-            text_position = self.text_pos.currentData(),
-            text_color    = self.text_col.currentData(),
-            text_font     = self.text_font.currentText(),
+            text_position      = self.text_pos.currentData(),
+            text_color         = self.text_col.currentData(),
+            text_font          = self.text_font.currentText(),
+            text_content       = self.text_inp.text(),
+            text_font_size     = int(self.text_size.value()),
+            show_preset_labels = self.text_labels.isChecked(),
         )
 
 
@@ -354,7 +384,7 @@ class CodePanel(QGroupBox):
 
         v.addWidget(sep())
         v.addWidget(hdr("LANGUAGE"))
-        self.lang = QComboBox()
+        self.lang = ComboBox()
         self.lang.addItems([
             "Python", "C", "Cpp", "Java", "JavaScript",
             "TypeScript", "Rust", "Go", "Bash", "SQL",
@@ -363,7 +393,7 @@ class CodePanel(QGroupBox):
 
         v.addWidget(sep())
         v.addWidget(hdr("ANIMATION STYLE"))
-        self.anim = QComboBox()
+        self.anim = ComboBox()
         self.anim.setObjectName("animationCombo")
         self.anim.addItems(["Write", "FadeIn", "FadeIn Up", "Create", "Typewriter"])
         v.addWidget(self.anim)
@@ -373,7 +403,7 @@ class CodePanel(QGroupBox):
 
         bg_row = QHBoxLayout()
         bg_row.addWidget(QLabel("Background"))
-        self.bg = QComboBox()
+        self.bg = ComboBox()
         self.bg.addItems(["Window", "Rectangle"])
         bg_row.addWidget(self.bg)
         bg_row.addStretch()
@@ -390,7 +420,7 @@ class CodePanel(QGroupBox):
         self.run_time  = Knob("Duration (s)",  0.5, 15.0,  4.0, decimals=1, step=0.5)
         v.addWidget(self.font_size)
         v.addWidget(self.run_time)
-        self.text_pos, self.text_col, self.text_font = add_text_controls(v, "top_left", "white")
+        self.text_pos, self.text_col, self.text_font, self.text_inp, self.text_size, self.text_labels = add_text_controls(v, "top_left", "white")
         v.addStretch()
 
     def source(self):
@@ -402,9 +432,12 @@ class CodePanel(QGroupBox):
             add_line_numbers = self.cb_lineno.isChecked(),
             font_size        = self.font_size.value(),
             run_time         = self.run_time.value(),
-            text_position    = self.text_pos.currentData(),
-            text_color       = self.text_col.currentData(),
-            text_font        = self.text_font.currentText(),
+            text_position      = self.text_pos.currentData(),
+            text_color         = self.text_col.currentData(),
+            text_font          = self.text_font.currentText(),
+            text_content       = self.text_inp.text(),
+            text_font_size     = int(self.text_size.value()),
+            show_preset_labels = self.text_labels.isChecked(),
         )
 
 
@@ -415,7 +448,7 @@ class StreamLinesPanel(QGroupBox):
         v.setSpacing(6)
 
         v.addWidget(hdr("VECTOR FIELD"))
-        self.mode = QComboBox()
+        self.mode = ComboBox()
         for label, key in [
             ("Vortex", "vortex"),
             ("Source", "source"),
@@ -447,7 +480,7 @@ class StreamLinesPanel(QGroupBox):
         d_row.addWidget(self.cb_animate)
         d_row.addStretch()
         v.addLayout(d_row)
-        self.text_pos, self.text_col, self.text_font = add_text_controls(v, "top_left", "teal")
+        self.text_pos, self.text_col, self.text_font, self.text_inp, self.text_size, self.text_labels = add_text_controls(v, "top_left", "teal")
         v.addStretch()
 
     def source(self):
@@ -460,9 +493,12 @@ class StreamLinesPanel(QGroupBox):
             stroke_width = self.stroke_width.value(),
             show_axes    = self.cb_axes.isChecked(),
             animate      = self.cb_animate.isChecked(),
-            text_position = self.text_pos.currentData(),
-            text_color    = self.text_col.currentData(),
-            text_font     = self.text_font.currentText(),
+            text_position      = self.text_pos.currentData(),
+            text_color         = self.text_col.currentData(),
+            text_font          = self.text_font.currentText(),
+            text_content       = self.text_inp.text(),
+            text_font_size     = int(self.text_size.value()),
+            show_preset_labels = self.text_labels.isChecked(),
         )
 
 

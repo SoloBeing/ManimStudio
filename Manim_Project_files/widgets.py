@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QSlider, QDoubleSpinBox, QFrame
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QSlider, QDoubleSpinBox, QFrame, QComboBox
 from PyQt6.QtCore import Qt, pyqtSignal
 
 from theme import C
@@ -19,6 +19,19 @@ def hdr(text):
 
 class SpinBox(QDoubleSpinBox):
     """SpinBox that only responds to wheel scroll when it has been clicked."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+
+    def wheelEvent(self, event):
+        if self.hasFocus():
+            super().wheelEvent(event)
+        else:
+            event.ignore()
+
+
+class ComboBox(QComboBox):
+    """ComboBox that only responds to wheel scroll when it has been clicked."""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)

@@ -33,10 +33,12 @@ def _text_color(value):
 def build_trig_source(
     show_sin, show_cos, show_tan, A, w, ph, D, xr, show_grid, anim,
     text_position="top_right", text_color="white", text_font="Arial",
+    text_content="", text_font_size=22, show_preset_labels=True,
 ):
     primary_corner, _, stack_direction = _text_position(text_position)
     txt_col = _text_color(text_color)
     font_arg = repr(text_font or "Arial")
+    fs = max(8, int(text_font_size))
     L = [
         "from manim import *",
         "import numpy as np",
@@ -65,6 +67,13 @@ def build_trig_source(
 
     L.append("        self.play(Create(axes), run_time=0.8)")
 
+    if text_content:
+        L += [
+            f"        custom_lbl = Text({repr(text_content)}, font_size={fs}, color={txt_col}, font={font_arg})",
+            f"        custom_lbl.to_corner({primary_corner})",
+            "        self.play(FadeIn(custom_lbl), run_time=0.4)",
+        ]
+
     graphs = []
     if show_sin:
         graphs.append((f"{A:.4f}*np.sin({w:.4f}*x + {ph:.4f}) + {D:.4f}", "BLUE",  "sin"))
@@ -76,25 +85,37 @@ def build_trig_source(
     for i, (expr, color, name) in enumerate(graphs):
         g  = f"g{i}"
         lv = f"lbl{i}"
-        lx = f"{xr * 0.5:.2f}"
         L += [
             f"        {g} = axes.plot(",
             f"            lambda x: {expr},",
             f"            x_range=[{-xr:.2f}, {xr:.2f}, 0.05],",
             f"            color={color}, stroke_width=2.5, use_smoothing=True,",
             "        )",
-            f'        {lv} = Text("{name}", font_size=20, color={txt_col}, font={font_arg})',
         ]
-        if i == 0:
-            L.append(f"        {lv}.to_corner({primary_corner})")
-        else:
-            L.append(f"        {lv}.next_to(lbl{i - 1}, {stack_direction}, buff=0.12)")
+        if show_preset_labels:
+            L.append(f'        {lv} = Text("{name}", font_size={fs}, color={txt_col}, font={font_arg})')
+            if i == 0:
+                if text_content:
+                    L.append(f"        {lv}.next_to(custom_lbl, {stack_direction}, buff=0.12)")
+                else:
+                    L.append(f"        {lv}.to_corner({primary_corner})")
+            else:
+                L.append(f"        {lv}.next_to(lbl{i - 1}, {stack_direction}, buff=0.12)")
         if anim == "Create":
-            L.append(f"        self.play(Create({g}), FadeIn({lv}), run_time=1.5)")
+            if show_preset_labels:
+                L.append(f"        self.play(Create({g}), FadeIn({lv}), run_time=1.5)")
+            else:
+                L.append(f"        self.play(Create({g}), run_time=1.5)")
         elif anim == "FadeIn":
-            L.append(f"        self.play(FadeIn({g}), FadeIn({lv}), run_time=1.2)")
+            if show_preset_labels:
+                L.append(f"        self.play(FadeIn({g}), FadeIn({lv}), run_time=1.2)")
+            else:
+                L.append(f"        self.play(FadeIn({g}), run_time=1.2)")
         else:
-            L.append(f"        self.play(Create({g}), Write({lv}), run_time=2.0)")
+            if show_preset_labels:
+                L.append(f"        self.play(Create({g}), Write({lv}), run_time=2.0)")
+            else:
+                L.append(f"        self.play(Create({g}), run_time=2.0)")
 
     L.append("        self.wait(1.5)")
     return _join(L)
@@ -103,10 +124,13 @@ def build_trig_source(
 def build_complex_source(
     mode, re_c, im_c, scale, n_pts, show_arrows,
     text_position="top_left", text_color="teal", text_font="Arial",
+    text_content="", text_font_size=22, show_preset_labels=True,
 ):
-    primary_corner, _, _ = _text_position(text_position)
+    primary_corner, _, stack_direction = _text_position(text_position)
     txt_col = _text_color(text_color)
     font_arg = repr(text_font or "Arial")
+    fs = max(8, int(text_font_size))
+    fs_sub = max(8, fs - 4)
     fn_map = {
         "f(z) = z^2":      "z**2",
         "f(z) = z^3 - 1":  "z**3 - 1",
@@ -135,9 +159,29 @@ def build_complex_source(
         "                stroke_color=TEAL_E, stroke_opacity=0.25",
         "            ),",
         "        ).add_coordinates()",
-        f'        title = Text("{mode}", font_size=22, color={txt_col}, font={font_arg})',
-        f"        title.to_corner({primary_corner})",
-        "        self.play(Create(plane), FadeIn(title), run_time=1.2)",
+        *(
+            [
+                f"        custom_lbl = Text({repr(text_content)}, font_size={fs}, color={txt_col}, font={font_arg})",
+                f"        custom_lbl.to_corner({primary_corner})",
+                *(
+                    [
+                        f'        title = Text("{mode}", font_size={fs_sub}, color={txt_col}, font={font_arg})',
+                        f"        title.next_to(custom_lbl, {stack_direction}, buff=0.12)",
+                        "        self.play(Create(plane), FadeIn(custom_lbl), FadeIn(title), run_time=1.2)",
+                    ] if show_preset_labels else [
+                        "        self.play(Create(plane), FadeIn(custom_lbl), run_time=1.2)",
+                    ]
+                ),
+            ] if text_content else (
+                [
+                    f'        title = Text("{mode}", font_size={fs}, color={txt_col}, font={font_arg})',
+                    f"        title.to_corner({primary_corner})",
+                    "        self.play(Create(plane), FadeIn(title), run_time=1.2)",
+                ] if show_preset_labels else [
+                    "        self.play(Create(plane), run_time=1.2)",
+                ]
+            )
+        ),
         f"        angles  = np.linspace(0, 2*np.pi, {n}, endpoint=False)",
         f"        r       = {r_sample:.4f}",
         f"        palette = color_gradient([BLUE, PURPLE, RED, ORANGE, YELLOW, GREEN], {n})",
@@ -173,6 +217,7 @@ def build_complex_source(
 def build_linear_source(
     a, b, c, d, vx, vy, show_det, show_basis, show_grid,
     text_position="top_left", text_color="white", text_font="Arial",
+    text_content="", text_font_size=22, show_preset_labels=True,
 ):
     det     = a*d - b*c
     tvx     = a*vx + b*vy
@@ -181,6 +226,8 @@ def build_linear_source(
     primary_corner, secondary_corner, det_direction = _text_position(text_position)
     txt_col = _text_color(text_color)
     font_arg = repr(text_font or "Arial")
+    fs = max(8, int(text_font_size))
+    fs_sm = max(8, fs - 4)
 
     L = [
         "from manim import *",
@@ -214,32 +261,56 @@ def build_linear_source(
             "                   buff=0, stroke_width=4, max_tip_length_to_length_ratio=0.2)",
             "        e2 = Arrow(axes.c2p(0,0), axes.c2p(0,1), color=RED,",
             "                   buff=0, stroke_width=4, max_tip_length_to_length_ratio=0.2)",
-            f"        e1_lbl = Text('e1', font_size=16, color={txt_col}, font={font_arg}).next_to(axes.c2p(1,0), UR, buff=0.1)",
-            f"        e2_lbl = Text('e2', font_size=16, color={txt_col}, font={font_arg}).next_to(axes.c2p(0,1), UR, buff=0.1)",
-            "        self.play(GrowArrow(e1), GrowArrow(e2), FadeIn(e1_lbl, e2_lbl), run_time=0.8)",
         ]
+        if show_preset_labels:
+            L += [
+                f"        e1_lbl = Text('e1', font_size={fs_sm}, color={txt_col}, font={font_arg}).next_to(axes.c2p(1,0), UR, buff=0.1)",
+                f"        e2_lbl = Text('e2', font_size={fs_sm}, color={txt_col}, font={font_arg}).next_to(axes.c2p(0,1), UR, buff=0.1)",
+                "        self.play(GrowArrow(e1), GrowArrow(e2), FadeIn(e1_lbl, e2_lbl), run_time=0.8)",
+            ]
+        else:
+            L.append("        self.play(GrowArrow(e1), GrowArrow(e2), run_time=0.8)")
 
     L += [
         f"        vec_start = axes.c2p(0, 0)",
         f"        vec_end   = axes.c2p({vx:.6f}, {vy:.6f})",
         "        vec = Arrow(vec_start, vec_end, color=YELLOW, buff=0,",
         "                    stroke_width=5, max_tip_length_to_length_ratio=0.2)",
-        f"        vec_lbl = Text('v=({vx:.2f},{vy:.2f})', font_size=16, color={txt_col}, font={font_arg})",
-        "        vec_lbl.next_to(vec.get_end(), UR, buff=0.1)",
-        "        self.play(GrowArrow(vec), FadeIn(vec_lbl), run_time=0.8)",
-        "",
-        f'        mat_lbl = Text("M = [[{a:.2f}, {b:.2f}], [{c:.2f}, {d:.2f}]]",',
-        f"                        font_size=18, color={txt_col}, font={font_arg})",
-        f"        mat_lbl.to_corner({primary_corner}).add_background_rectangle()",
-        f'        det_lbl = Text("det = {det:.3f}", font_size=18, color={det_col}, font={font_arg})',
-        f"        det_lbl.next_to(mat_lbl, {det_direction}, buff=0.15).add_background_rectangle()",
-        f'        res_lbl = Text("Mv = ({tvx:.2f}, {tvy:.2f})", font_size=18, color={txt_col}, font={font_arg})',
-        f"        res_lbl.to_corner({secondary_corner}).add_background_rectangle()",
-        "        self.play(FadeIn(mat_lbl), run_time=0.6)",
     ]
+    if show_preset_labels:
+        L += [
+            f"        vec_lbl = Text('v=({vx:.2f},{vy:.2f})', font_size={fs_sm}, color={txt_col}, font={font_arg})",
+            "        vec_lbl.next_to(vec.get_end(), UR, buff=0.1)",
+            "        self.play(GrowArrow(vec), FadeIn(vec_lbl), run_time=0.8)",
+        ]
+    else:
+        L.append("        self.play(GrowArrow(vec), run_time=0.8)")
 
-    if show_det:
-        L.append("        self.play(FadeIn(det_lbl), run_time=0.4)")
+    L.append("")
+    if text_content:
+        L += [
+            f"        custom_lbl = Text({repr(text_content)}, font_size={fs}, color={txt_col}, font={font_arg})",
+            f"        custom_lbl.to_corner({primary_corner})",
+            "        self.play(FadeIn(custom_lbl), run_time=0.4)",
+        ]
+    if show_preset_labels:
+        L += [
+            f'        mat_lbl = Text("M = [[{a:.2f}, {b:.2f}], [{c:.2f}, {d:.2f}]]",',
+            f"                        font_size={fs}, color={txt_col}, font={font_arg})",
+        ]
+        if text_content:
+            L.append(f"        mat_lbl.next_to(custom_lbl, {det_direction}, buff=0.12).add_background_rectangle()")
+        else:
+            L.append(f"        mat_lbl.to_corner({primary_corner}).add_background_rectangle()")
+        L += [
+            f'        det_lbl = Text("det = {det:.3f}", font_size={fs}, color={det_col}, font={font_arg})',
+            f"        det_lbl.next_to(mat_lbl, {det_direction}, buff=0.15).add_background_rectangle()",
+            f'        res_lbl = Text("Mv = ({tvx:.2f}, {tvy:.2f})", font_size={fs}, color={txt_col}, font={font_arg})',
+            f"        res_lbl.to_corner({secondary_corner}).add_background_rectangle()",
+            "        self.play(FadeIn(mat_lbl), run_time=0.6)",
+        ]
+        if show_det:
+            L.append("        self.play(FadeIn(det_lbl), run_time=0.4)")
 
     L += [
         "",
@@ -251,9 +322,12 @@ def build_linear_source(
         f"        tvec_end = axes.c2p({tvx:.6f}, {tvy:.6f})",
         "        tvec = Arrow(vec_start, tvec_end, color=ORANGE, buff=0,",
         "                     stroke_width=5, max_tip_length_to_length_ratio=0.2)",
-        f"        tvec_lbl = Text('Mv=({tvx:.2f},{tvy:.2f})', font_size=16, color={txt_col}, font={font_arg})",
-        "        tvec_lbl.next_to(tvec.get_end(), UR, buff=0.1)",
     ]
+    if show_preset_labels:
+        L += [
+            f"        tvec_lbl = Text('Mv=({tvx:.2f},{tvy:.2f})', font_size={fs_sm}, color={txt_col}, font={font_arg})",
+            "        tvec_lbl.next_to(tvec.get_end(), UR, buff=0.1)",
+        ]
 
     if show_basis:
         L += [
@@ -266,34 +340,35 @@ def build_linear_source(
             "        self.play(",
             "            Transform(vec, tvec),",
             "            Transform(e1, e1_t), Transform(e2, e2_t),",
-            "            FadeOut(vec_lbl), FadeOut(e1_lbl), FadeOut(e2_lbl),",
+            *(["            FadeOut(vec_lbl), FadeOut(e1_lbl), FadeOut(e2_lbl),"] if show_preset_labels else []),
             "            run_time=1.8,",
             "        )",
         ]
     else:
-        L += [
-            "        self.play(",
-            "            Transform(vec, tvec),",
-            "            FadeOut(vec_lbl),",
-            "            run_time=1.8,",
-            "        )",
-        ]
+        play_line = (
+            "        self.play(Transform(vec, tvec), FadeOut(vec_lbl), run_time=1.8)"
+            if show_preset_labels else
+            "        self.play(Transform(vec, tvec), run_time=1.8)"
+        )
+        L.append(play_line)
 
-    L += [
-        "        self.play(FadeIn(tvec_lbl), FadeIn(res_lbl), run_time=0.5)",
-        "        self.wait(1.5)",
-    ]
+    if show_preset_labels:
+        L.append("        self.play(FadeIn(tvec_lbl), FadeIn(res_lbl), run_time=0.5)")
+    L.append("        self.wait(1.5)")
     return _join(L)
 
 
 def build_nonlinear_source(
     mode, intensity, scale, show_grid, show_points,
     text_position="top_left", text_color="teal", text_font="Arial",
+    text_content="", text_font_size=22, show_preset_labels=True,
 ):
     mode = str(mode or "swirl").strip().lower()
     primary_corner, _, subtitle_direction = _text_position(text_position)
     title_color = _text_color(text_color)
     font_arg = repr(text_font or "Arial")
+    fs = max(8, int(text_font_size))
+    fs_sub = max(8, fs - 8)
     preset_map = {
         "swirl": (
             "Swirl",
@@ -351,11 +426,30 @@ def build_nonlinear_source(
         "",
         "class ManimScene(Scene):",
         "    def construct(self):",
-        f'        title = Text("{title}", font_size=26, color={title_color}, font={font_arg})',
-        f"        title.to_corner({primary_corner})",
-        f'        subtitle = Text("{subtitle}", font_size=16, color={title_color}, font={font_arg})',
-        f"        subtitle.next_to(title, {subtitle_direction}, buff=0.12)",
-        "        self.play(FadeIn(title), FadeIn(subtitle), run_time=0.7)",
+        *(
+            [f"        custom_lbl = Text({repr(text_content)}, font_size={fs}, color={title_color}, font={font_arg})",
+             f"        custom_lbl.to_corner({primary_corner})"]
+            if text_content else []
+        ),
+        *(
+            [
+                f'        title = Text("{title}", font_size={fs_sub if text_content else fs}, color={title_color}, font={font_arg})',
+                f"        title.next_to(custom_lbl, {subtitle_direction}, buff=0.12)" if text_content else f"        title.to_corner({primary_corner})",
+                f'        subtitle = Text("{subtitle}", font_size={fs_sub}, color={title_color}, font={font_arg})',
+                f"        subtitle.next_to(title, {subtitle_direction}, buff=0.12)",
+                (
+                    "        self.play(FadeIn(custom_lbl), FadeIn(title), FadeIn(subtitle), run_time=0.7)"
+                    if text_content else
+                    "        self.play(FadeIn(title), FadeIn(subtitle), run_time=0.7)"
+                ),
+            ] if show_preset_labels else [
+                (
+                    "        self.play(FadeIn(custom_lbl), run_time=0.7)"
+                    if text_content else
+                    "        self.play(run_time=0.01)"
+                ),
+            ]
+        ),
         "",
         "        def warp(p):",
         *body,
@@ -394,11 +488,13 @@ def build_nonlinear_source(
 def build_code_source(
     code_str, language, anim, background, add_line_numbers, font_size, run_time,
     text_position="top_left", text_color="white", text_font="Consolas",
+    text_content="", text_font_size=22, show_preset_labels=True,
 ):
     safe = repr(code_str)   # escapes newlines, quotes, backslashes safely
     language = str(language or "python").lower()
     background = str(background or "window").lower()
     font_arg = repr(text_font or "Consolas")
+    fs = max(8, int(text_font_size))
 
     if anim == "Write":
         anim_lines = [f"            self.play(Write(code), run_time={run_time:.1f})"]
@@ -422,11 +518,22 @@ def build_code_source(
     else:
         anim_lines = [f"            self.play(FadeIn(code), run_time={run_time:.1f})"]
 
+    primary_corner, _, _ = _text_position(text_position)
+    txt_col = _text_color(text_color)
+    font_arg_lbl = repr(text_font or "Consolas")
+
     L = [
         "from manim import *",
         "",
         "class ManimScene(Scene):",
         "    def construct(self):",
+        *(
+            [
+                f"        custom_lbl = Text({repr(text_content)}, font_size={fs}, color={txt_col}, font={font_arg_lbl})",
+                f"        custom_lbl.to_corner({primary_corner})",
+                "        self.add(custom_lbl)",
+            ] if text_content else []
+        ),
         f"        _raw = {safe}",
         "        _lines = _raw.split('\\n')",
         "        _chunks = ['\\n'.join(_lines[i:i+13]) for i in range(0, len(_lines), 13)]",
@@ -457,11 +564,14 @@ def build_code_source(
 def build_streamlines_source(
     mode, scale, spacing, flow_speed, virtual_time, stroke_width, show_axes, animate,
     text_position="top_left", text_color="teal", text_font="Arial",
+    text_content="", text_font_size=22, show_preset_labels=True,
 ):
     mode = str(mode or "vortex").strip().lower()
     primary_corner, _, subtitle_direction = _text_position(text_position)
     txt_col = _text_color(text_color)
     font_arg = repr(text_font or "Arial")
+    fs = max(8, int(text_font_size))
+    fs_sub = max(8, fs - 8)
     field_map = {
         "vortex": (
             "Vortex",
@@ -498,11 +608,30 @@ def build_streamlines_source(
         "",
         "class ManimScene(Scene):",
         "    def construct(self):",
-        f'        title = Text("{title} StreamLines", font_size=26, color={txt_col}, font={font_arg})',
-        f"        title.to_corner({primary_corner})",
-        f'        subtitle = Text("{subtitle}", font_size=16, color={txt_col}, font={font_arg})',
-        f"        subtitle.next_to(title, {subtitle_direction}, buff=0.12)",
-        "        self.play(FadeIn(title), FadeIn(subtitle), run_time=0.7)",
+        *(
+            [f"        custom_lbl = Text({repr(text_content)}, font_size={fs}, color={txt_col}, font={font_arg})",
+             f"        custom_lbl.to_corner({primary_corner})"]
+            if text_content else []
+        ),
+        *(
+            [
+                f'        title = Text("{title} StreamLines", font_size={fs_sub if text_content else fs}, color={txt_col}, font={font_arg})',
+                f"        title.next_to(custom_lbl, {subtitle_direction}, buff=0.12)" if text_content else f"        title.to_corner({primary_corner})",
+                f'        subtitle = Text("{subtitle}", font_size={fs_sub}, color={txt_col}, font={font_arg})',
+                f"        subtitle.next_to(title, {subtitle_direction}, buff=0.12)",
+                (
+                    "        self.play(FadeIn(custom_lbl), FadeIn(title), FadeIn(subtitle), run_time=0.7)"
+                    if text_content else
+                    "        self.play(FadeIn(title), FadeIn(subtitle), run_time=0.7)"
+                ),
+            ] if show_preset_labels else [
+                (
+                    "        self.play(FadeIn(custom_lbl), run_time=0.7)"
+                    if text_content else
+                    "        self.play(run_time=0.01)"
+                ),
+            ]
+        ),
         "",
         "        def field(p):",
         f"            return {expr}",
