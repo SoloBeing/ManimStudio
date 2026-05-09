@@ -378,7 +378,7 @@ class MainWindow(QMainWindow):
             if cb.isChecked():
                 os.makedirs(_dir, exist_ok=True)
                 open(_LATEX_WARNED_FLAG, "w").close()
-                self.right.show_latex_notice()
+            self.right.show_latex_notice()
 
     def _select_panel(self, idx):
         self.left.selector.setCurrentIndex(idx)
