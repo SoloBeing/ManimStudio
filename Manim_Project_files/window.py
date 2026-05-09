@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QSplitter, QTextEdit,
     QScrollArea, QComboBox, QSizePolicy, QStatusBar,
-    QFileDialog, QMessageBox,
+    QFileDialog, QMessageBox, QCheckBox,
 )
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtMultimediaWidgets import QVideoWidget
@@ -194,7 +194,6 @@ class RightPanel(QWidget):
             b.setFixedSize(36, 30)
             b.clicked.connect(fn)
             pb.addWidget(b)
-        from PyQt6.QtWidgets import QCheckBox
         self.loop = QCheckBox("Loop")
         self.loop.setChecked(True)
         pb.addStretch()
@@ -222,6 +221,22 @@ class RightPanel(QWidget):
         )
         self.log.setFont(QFont("Fira Code,Courier New", 9))
         root.addWidget(self.log)
+
+        self.latex_notice = QLabel(
+            "⚠  LaTeX not installed — MathTex / Tex objects unavailable. "
+            "Install TinyTeX to enable math rendering."
+        )
+        self.latex_notice.setWordWrap(True)
+        self.latex_notice.setStyleSheet(
+            "background:#2a1800; color:#e8a020;"
+            " border:1px solid #6b3a00; border-radius:4px;"
+            " padding:5px 8px; font-size:10px;"
+        )
+        self.latex_notice.hide()
+        root.addWidget(self.latex_notice)
+
+    def show_latex_notice(self):
+        self.latex_notice.show()
 
     def _on_playback_state(self, state):
         if state == QMediaPlayer.PlaybackState.PlayingState:
@@ -314,7 +329,7 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(300, self._check_latex)
 
     def _check_latex(self):
-        latex_ok = shutil.which("latex") and shutil.which("dvisvgm")
+        latex_ok = bool(shutil.which("latex") and shutil.which("dvisvgm"))
         _dir = os.path.dirname(_LATEX_WARNED_FLAG)
 
         if latex_ok:
@@ -328,11 +343,15 @@ class MainWindow(QMainWindow):
                 "<tt>MathTex()</tt> and <tt>Tex()</tt> objects are fully supported."
             )
             msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+            cb = QCheckBox("Don't show this again")
+            msg.setCheckBox(cb)
             msg.exec()
-            os.makedirs(_dir, exist_ok=True)
-            open(_LATEX_READY_FLAG, "w").close()
+            if cb.isChecked():
+                os.makedirs(_dir, exist_ok=True)
+                open(_LATEX_READY_FLAG, "w").close()
         else:
             if os.path.exists(_LATEX_WARNED_FLAG):
+                self.right.show_latex_notice()
                 return
             missing = [t for t in ("latex", "dvisvgm") if not shutil.which(t)]
             sys_name = platform.system()
@@ -353,9 +372,13 @@ class MainWindow(QMainWindow):
                 f"<tt>{cmd}</tt>"
             )
             msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+            cb = QCheckBox("Don't show this again")
+            msg.setCheckBox(cb)
             msg.exec()
-            os.makedirs(_dir, exist_ok=True)
-            open(_LATEX_WARNED_FLAG, "w").close()
+            if cb.isChecked():
+                os.makedirs(_dir, exist_ok=True)
+                open(_LATEX_WARNED_FLAG, "w").close()
+                self.right.show_latex_notice()
 
     def _select_panel(self, idx):
         self.left.selector.setCurrentIndex(idx)
