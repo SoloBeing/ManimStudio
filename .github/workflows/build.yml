@@ -83,12 +83,12 @@ jobs:
 
       - name: Zip artifact (Linux / macOS)
         if: runner.os != 'Windows'
-        run: zip -r "${{ github.workspace }}/ManimStudio-${{ matrix.name }}.zip" "${{ github.workspace }}/dist/Manim Studio/"
+        run: cd "${{ github.workspace }}/dist" && zip -r "${{ github.workspace }}/ManimStudio-${{ matrix.name }}.zip" "Manim Studio/"
 
       - name: Zip artifact (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: Compress-Archive -Path "${{ github.workspace }}/dist/Manim Studio/" -DestinationPath "${{ github.workspace }}/ManimStudio-${{ matrix.name }}.zip"
+        run: Compress-Archive -Path "${{ github.workspace }}/dist/Manim Studio" -DestinationPath "${{ github.workspace }}/ManimStudio-${{ matrix.name }}.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
