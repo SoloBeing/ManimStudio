@@ -12,4 +12,4 @@ python3 -m PyInstaller \
   --workpath "build" \
   ManimStudio.spec
 
-echo "Built app: $PROJECT_DIR/dist/Manim Studio"
+echo "Built app: $PROJECT_DIR/dist/ManimStudio"
