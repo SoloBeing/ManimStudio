@@ -103,6 +103,11 @@ class LeftPanel(QWidget):
         self.btn_stop = QPushButton("⏹")
         self.btn_stop.setObjectName("stop")
         self.btn_stop.setFixedWidth(38)
+        self.btn_stop.setStyleSheet(
+            "font-family:'Segoe UI Symbol','Apple Symbols',"
+            "'Noto Sans Symbols 2','DejaVu Sans',sans-serif;"
+            "font-size:14px;"
+        )
         self.btn_stop.setEnabled(False)
 
         bar.addWidget(self.quality)
@@ -183,6 +188,11 @@ class RightPanel(QWidget):
         self.player.setVideoOutput(self.video)
         root.addWidget(self.video, stretch=1)
 
+        _sym_font = (
+            "font-family:'Segoe UI Symbol','Apple Symbols',"
+            "'Noto Sans Symbols 2','DejaVu Sans',sans-serif;"
+            "font-size:14px;"
+        )
         pb = QHBoxLayout()
         for icon, fn in [
             ("⏮", lambda: self.player.setPosition(0)),
@@ -192,6 +202,7 @@ class RightPanel(QWidget):
         ]:
             b = QPushButton(icon)
             b.setFixedSize(36, 30)
+            b.setStyleSheet(_sym_font)
             b.clicked.connect(fn)
             pb.addWidget(b)
         self.loop = QCheckBox("Loop")

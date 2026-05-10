@@ -10,7 +10,10 @@ QUALITY = {
 }
 
 RENDERS_DIR = os.path.join(os.path.expanduser("~"), "ManimStudio", "renders")
-os.makedirs(RENDERS_DIR, exist_ok=True)
+try:
+    os.makedirs(RENDERS_DIR, exist_ok=True)
+except OSError:
+    RENDERS_DIR = tempfile.gettempdir()
 
 
 class RenderThread(QThread):
@@ -46,9 +49,12 @@ class RenderThread(QThread):
                 cmd = [sys.executable, "--run-manim"] + self.flags + ["--media_dir", self.output_dir, tmp, "ManimScene"]
             else:
                 cmd = ["manim"] + self.flags + ["--media_dir", self.output_dir, tmp, "ManimScene"]
+            kw = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
             self._proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT, text=True,
+                encoding="utf-8", errors="replace",
+                **kw
             )
             for line in self._proc.stdout:
                 stripped = line.rstrip()
@@ -90,5 +96,11 @@ class RenderThread(QThread):
     def stop(self):
         self._stopped = True
         if self._proc:
-            self._proc.terminate()
-        self.terminate()
+            if sys.platform == "win32":
+                subprocess.run(
+                    ["taskkill", "/F", "/T", "/PID", str(self._proc.pid)],
+                    capture_output=True,
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                )
+            else:
+                self._proc.terminate()
