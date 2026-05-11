@@ -456,6 +456,16 @@ class MainWindow(QMainWindow):
         self.right.set_status("● Stopped", C['accent2'])
         self._sb.showMessage("Stopped")
 
+    def closeEvent(self, event):
+        if self._thread and self._thread.isRunning():
+            try:
+                self._thread.done.disconnect(self._done)
+            except TypeError:
+                pass
+            self._thread.stop()
+            self._thread.wait()
+        event.accept()
+
     def _done(self, path: str):
         if self._render_stopped:
             return

@@ -1,4 +1,4 @@
-import sys, os, ast, subprocess, tempfile, shutil
+import sys, os, ast, subprocess, tempfile, shutil, signal
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
@@ -49,7 +49,7 @@ class RenderThread(QThread):
                 cmd = [sys.executable, "--run-manim"] + self.flags + ["--media_dir", self.output_dir, tmp, "ManimScene"]
             else:
                 cmd = ["manim"] + self.flags + ["--media_dir", self.output_dir, tmp, "ManimScene"]
-            kw = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
+            kw = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {"start_new_session": True}
             self._proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT, text=True,
@@ -103,4 +103,7 @@ class RenderThread(QThread):
                     creationflags=subprocess.CREATE_NO_WINDOW,
                 )
             else:
-                self._proc.terminate()
+                try:
+                    os.killpg(self._proc.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
