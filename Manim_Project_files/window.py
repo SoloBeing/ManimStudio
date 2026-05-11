@@ -492,7 +492,15 @@ class MainWindow(QMainWindow):
             self._sb.showMessage(f"Saved  {path}")
         else:
             try:
-                os.unlink(path)
+                # Manim layout: output_dir/videos/<stem>/<quality>/ManimScene.mp4
+                # Two levels up is the per-script temp dir; rmtree it only when
+                # it is provably inside output_dir/videos/ to stay safe.
+                render_tree = os.path.dirname(os.path.dirname(path))
+                videos_dir  = os.path.join(os.path.abspath(self.left.output_dir), "videos")
+                if os.path.abspath(render_tree).startswith(videos_dir + os.sep):
+                    shutil.rmtree(render_tree, ignore_errors=True)
+                else:
+                    os.unlink(path)
             except OSError:
                 pass
             self.right.set_status("● Idle", C['dim'])

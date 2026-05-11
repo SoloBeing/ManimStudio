@@ -204,15 +204,24 @@ def test_cancel_save_dialog():
         from window import MainWindow
         win = MainWindow()
         win.show()
-        tmp = tempfile.NamedTemporaryFile(suffix='.mp4', delete=False)
-        tmp.write(b'\\x00' * 512)
-        tmp.close()
-        fake_video = tmp.name
+        # Build a fake manim output tree: output_dir/videos/tmpXXX/480p15/
+        import tempfile as _tf, shutil as _sh
+        out_dir   = _tf.mkdtemp()
+        stem_dir  = os.path.join(out_dir, 'videos', 'tmpFAKE', '480p15')
+        os.makedirs(stem_dir)
+        partial   = os.path.join(stem_dir, 'partial_movie_files')
+        os.makedirs(partial)
+        open(os.path.join(partial, 'clip.mp4'), 'wb').close()
+        fake_video = os.path.join(stem_dir, 'ManimScene.mp4')
+        open(fake_video, 'wb').write(b'\\x00' * 512)
+        win.left.output_dir = out_dir
         win._done(fake_video)
         assert win.left.btn_run.isEnabled(),       "run button not re-enabled"
         assert not win.left.btn_stop.isEnabled(),  "stop button still enabled"
-        assert not os.path.exists(fake_video),     "temp render file not deleted on cancel"
+        stem_parent = os.path.join(out_dir, 'videos', 'tmpFAKE')
+        assert not os.path.exists(stem_parent),    "per-script render tree not deleted"
         assert "discarded" in win._sb.currentMessage().lower(), "status bar not updated"
+        _sh.rmtree(out_dir, ignore_errors=True)
         print("ok")
     """)
 
