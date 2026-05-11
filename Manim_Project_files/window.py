@@ -487,7 +487,13 @@ class MainWindow(QMainWindow):
                 path = save_path
             except OSError as e:
                 self.right.append_log(f"[WARN] could not move file: {e}")
-
-        self.right.load(path)
-        self.right.set_status("● Playing", C['green'])
-        self._sb.showMessage(f"Saved  {path}")
+            self.right.load(path)
+            self.right.set_status("● Playing", C['green'])
+            self._sb.showMessage(f"Saved  {path}")
+        else:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+            self.right.set_status("● Idle", C['dim'])
+            self._sb.showMessage("Render discarded")

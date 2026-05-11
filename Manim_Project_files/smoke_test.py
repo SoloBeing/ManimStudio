@@ -209,9 +209,10 @@ def test_cancel_save_dialog():
         tmp.close()
         fake_video = tmp.name
         win._done(fake_video)
-        assert win.left.btn_run.isEnabled(),  "run button not re-enabled"
-        assert not win.left.btn_stop.isEnabled(), "stop button still enabled"
-        os.unlink(fake_video)
+        assert win.left.btn_run.isEnabled(),       "run button not re-enabled"
+        assert not win.left.btn_stop.isEnabled(),  "stop button still enabled"
+        assert not os.path.exists(fake_video),     "temp render file not deleted on cancel"
+        assert "discarded" in win._sb.currentMessage().lower(), "status bar not updated"
         print("ok")
     """)
 
