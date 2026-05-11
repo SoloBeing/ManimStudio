@@ -22,11 +22,12 @@ class RenderThread(QThread):
 
     def __init__(self, source: str, flags: list, output_dir: str):
         super().__init__()
-        self.source     = source
-        self.flags      = flags
-        self.output_dir = output_dir
-        self._proc      = None
-        self._stopped   = False
+        self.source      = source
+        self.flags       = flags
+        self.output_dir  = output_dir
+        self._proc       = None
+        self._stopped    = False
+        self.render_stem = None  # stem of the temp script; set in run() for cleanup
 
     def run(self):
         try:
@@ -41,6 +42,7 @@ class RenderThread(QThread):
         ) as f:
             f.write(self.source)
             tmp = f.name
+        self.render_stem = os.path.splitext(os.path.basename(tmp))[0]
 
         full_output = []
         try:
@@ -67,14 +69,18 @@ class RenderThread(QThread):
             except OSError:
                 pass
 
-        # Manim may split the path across two log lines — join and re-scan
+        # Manim's rich formatter column-wraps the path, injecting alignment
+        # spaces inside the quoted string.  Split on the surrounding quotes
+        # and collapse all whitespace to reconstruct the real path.
         video = ""
         combined = " ".join(full_output)
         if "File ready at" in combined:
-            after = combined.split("File ready at", 1)[1].strip()
-            token = after.split()[0].strip("'\"") if after.split() else ""
-            if token and os.path.exists(token):
-                video = token
+            after = combined.split("File ready at", 1)[1]
+            parts = after.split("'")
+            if len(parts) > 1:
+                candidate = "".join(parts[1].split())
+                if candidate and os.path.exists(candidate):
+                    video = candidate
 
         # Fallback: newest mp4/gif in output_dir
         if not video:

@@ -204,22 +204,26 @@ def test_cancel_save_dialog():
         from window import MainWindow
         win = MainWindow()
         win.show()
-        # Build a fake manim output tree: output_dir/videos/tmpXXX/480p15/
-        import tempfile as _tf, shutil as _sh
-        out_dir   = _tf.mkdtemp()
-        stem_dir  = os.path.join(out_dir, 'videos', 'tmpFAKE', '480p15')
-        os.makedirs(stem_dir)
-        partial   = os.path.join(stem_dir, 'partial_movie_files')
+        import tempfile as _tf, shutil as _sh, types as _types
+        out_dir = _tf.mkdtemp()
+        stem    = 'tmpFAKE'
+        # Replicate manim's output layout: videos/<stem>/<quality>/ + images/<stem>/
+        qual_dir = os.path.join(out_dir, 'videos', stem, '480p15')
+        os.makedirs(qual_dir)
+        partial  = os.path.join(qual_dir, 'partial_movie_files')
         os.makedirs(partial)
         open(os.path.join(partial, 'clip.mp4'), 'wb').close()
-        fake_video = os.path.join(stem_dir, 'ManimScene.mp4')
+        fake_video = os.path.join(qual_dir, 'ManimScene.mp4')
         open(fake_video, 'wb').write(b'\\x00' * 512)
+        img_dir = os.path.join(out_dir, 'images', stem)
+        os.makedirs(img_dir)
         win.left.output_dir = out_dir
+        win._thread = _types.SimpleNamespace(render_stem=stem)
         win._done(fake_video)
         assert win.left.btn_run.isEnabled(),       "run button not re-enabled"
         assert not win.left.btn_stop.isEnabled(),  "stop button still enabled"
-        stem_parent = os.path.join(out_dir, 'videos', 'tmpFAKE')
-        assert not os.path.exists(stem_parent),    "per-script render tree not deleted"
+        assert not os.path.exists(os.path.join(out_dir, 'videos', stem)), "videos/<stem> not deleted"
+        assert not os.path.exists(os.path.join(out_dir, 'images', stem)), "images/<stem> not deleted"
         assert "discarded" in win._sb.currentMessage().lower(), "status bar not updated"
         _sh.rmtree(out_dir, ignore_errors=True)
         print("ok")
