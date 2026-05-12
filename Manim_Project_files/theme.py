@@ -27,6 +27,11 @@ QLabel#dim  {{ color:{C['dim']}; font-size:10px; }}
 QLabel#hdr  {{ color:{C['accent3']}; font-size:10px; font-weight:700;
                letter-spacing:1px; padding:4px 0 2px 0; }}
 QLabel#comboLabel {{ color:{C['accent3']}; font-size:10px; font-weight:700; }}
+QLabel#emptyTitle {{ color:{C['text']}; font-size:22px; font-weight:800; }}
+QFrame#emptyPreview {{
+    background:{C['bg1']}; border:1px dashed {C['border']};
+    border-radius:8px;
+}}
 
 QDoubleSpinBox,QSpinBox,QComboBox {{
     background:{C['bg3']}; border:1px solid {C['border']};
@@ -56,6 +61,20 @@ QComboBox#animationCombo {{
 }}
 QComboBox#animationCombo QAbstractItemView {{
     color:{C['text']}; font-weight:600;
+}}
+QComboBox#modeSelector {{
+    background:{C['bg1']}; color:{C['text']};
+    border:1px solid {C['accent']}; border-radius:6px;
+    padding:6px 8px; font-size:12px; font-weight:800;
+}}
+QComboBox#modeSelector::drop-down {{
+    background:{C['bg2']}; border-left:1px solid {C['border']};
+    width:24px; border-top-right-radius:6px; border-bottom-right-radius:6px;
+}}
+QComboBox#modeSelector QAbstractItemView {{
+    background:{C['bg2']}; color:{C['text']};
+    border:1px solid {C['border']};
+    selection-background-color:{C['accent']}; selection-color:{C['bg0']};
 }}
 QComboBox#statusCombo {{
     background:{C['bg1']}; color:{C['accent3']};

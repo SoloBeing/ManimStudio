@@ -20,12 +20,13 @@ def main():
     win = MainWindow()
     win.show()
 
-    # SIGTERM / SIGHUP → close the window gracefully (triggers closeEvent cleanup)
+    # SIGTERM / SIGHUP close the window gracefully (triggers closeEvent cleanup).
     def _quit(*_):
         win.close()
 
     signal.signal(signal.SIGTERM, _quit)
-    signal.signal(signal.SIGHUP, _quit)
+    if hasattr(signal, "SIGHUP"):
+        signal.signal(signal.SIGHUP, _quit)
 
     # Qt's C++ event loop doesn't yield to Python between ticks, so OS signals
     # would be delayed indefinitely. This no-op timer fires every 200 ms and
