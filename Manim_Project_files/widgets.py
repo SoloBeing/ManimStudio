@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QSlider, QDoubleSpinBox, QFrame, QComboBox
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QEvent
 
 from theme import C
 
@@ -22,12 +22,19 @@ class SpinBox(QDoubleSpinBox):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+        self.lineEdit().installEventFilter(self)
 
     def wheelEvent(self, event):
         if self.hasFocus():
             super().wheelEvent(event)
         else:
             event.ignore()
+
+    def eventFilter(self, obj, event):
+        if obj is self.lineEdit() and event.type() == QEvent.Type.MouseButtonDblClick:
+            self.lineEdit().selectAll()
+            return True
+        return super().eventFilter(obj, event)
 
 
 class ComboBox(QComboBox):
