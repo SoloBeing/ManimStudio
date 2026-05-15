@@ -77,13 +77,6 @@ def _text_kwargs(font, fs, color, bold=False, italic=False,
     return ", ".join(kw)
 
 
-def _gradient_line(varname, gradient):
-    g = GRADIENTS.get(str(gradient or "none").strip().lower())
-    if g:
-        return f"        {varname}.set_color_by_gradient({g})"
-    return None
-
-
 def _offset_line(varname, x, y):
     x, y = float(x or 0), float(y or 0)
     if abs(x) > 0.005 or abs(y) > 0.005:
@@ -91,12 +84,27 @@ def _offset_line(varname, x, y):
     return None
 
 
+def _text_line(varname, content, font, fs, color, bold, italic, stroke_width, stroke_col, gradient=None):
+    """Return a Text or MarkupText assignment line; uses MarkupText when gradient is active."""
+    g = GRADIENTS.get(str(gradient or "none").strip().lower())
+    sw = float(stroke_width or 0)
+    if g:
+        kw = [f"font_size={fs}", f"font={repr(font)}", f"gradient=({g},)"]
+        if bold:   kw.append("weight=BOLD")
+        if italic: kw.append("slant=ITALIC")
+        if sw > 0:
+            kw.append(f"stroke_width={sw:.1f}")
+            kw.append(f"stroke_color={stroke_col or color}")
+        return f"        {varname} = MarkupText({repr(content)}, {', '.join(kw)})"
+    tkw = _text_kwargs(font, fs, color, bold, italic, stroke_width, stroke_col)
+    return f"        {varname} = Text({repr(content)}, {tkw})"
+
+
 def _place_custom_lbl(L, text_content, font, fs, txt_col, bold, italic,
                       stroke_width, stroke_col, pos_call, gradient, x_offset, y_offset):
     if not text_content:
         return
-    tkw = _text_kwargs(font, fs, txt_col, bold, italic, stroke_width, stroke_col)
-    L.append(f"        custom_lbl = Text({repr(text_content)}, {tkw})")
+    L.append(_text_line("custom_lbl", text_content, font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
     if pos_call == "__FREE__":
         x, y = float(x_offset or 0), float(y_offset or 0)
         L.append(f"        custom_lbl.move_to(RIGHT * {x:.2f} + UP * {y:.2f})")
@@ -105,9 +113,6 @@ def _place_custom_lbl(L, text_content, font, fs, txt_col, bold, italic,
         o = _offset_line("custom_lbl", x_offset, y_offset)
         if o:
             L.append(o)
-    g = _gradient_line("custom_lbl", gradient)
-    if g:
-        L.append(g)
 
 
 # ===========================================================================
@@ -180,7 +185,7 @@ def build_trig_source(
             "        )",
         ]
         if show_preset_labels:
-            L.append(f'        {lv} = Text("{name}", {tkw})')
+            L.append(_text_line(lv, name, font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
             if i == 0:
                 if text_content:
                     L.append(f"        {lv}.next_to(custom_lbl, {stack_dir}, buff=0.12)")
@@ -263,14 +268,14 @@ def build_complex_source(
         _place_custom_lbl(L, text_content, font, fs, txt_col, bold, italic,
                           stroke_width, stroke_col, pos_call, gradient, x_offset, y_offset)
         if show_preset_labels:
-            L.append(f'        title = Text("{mode}", {tkw_sub})')
+            L.append(_text_line("title", mode, font, fs_sub, txt_col, bold, italic, stroke_width, stroke_col, gradient))
             L.append(f"        title.next_to(custom_lbl, {stack_dir}, buff=0.12)")
             L.append("        self.play(Create(plane), FadeIn(custom_lbl), FadeIn(title), run_time=1.2)")
         else:
             L.append("        self.play(Create(plane), FadeIn(custom_lbl), run_time=1.2)")
     else:
         if show_preset_labels:
-            L.append(f'        title = Text("{mode}", {tkw})')
+            L.append(_text_line("title", mode, font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
             L.append(f"        title.{pos_call}")
             L.append("        self.play(Create(plane), FadeIn(title), run_time=1.2)")
         else:
@@ -370,11 +375,11 @@ def build_linear_source(
             "                   buff=0, stroke_width=4, max_tip_length_to_length_ratio=0.2)",
         ]
         if show_preset_labels:
-            L += [
-                f"        e1_lbl = Text('e1', {tkw_sm}).next_to(axes.c2p(1,0), UR, buff=0.1)",
-                f"        e2_lbl = Text('e2', {tkw_sm}).next_to(axes.c2p(0,1), UR, buff=0.1)",
-                "        self.play(GrowArrow(e1), GrowArrow(e2), FadeIn(e1_lbl, e2_lbl), run_time=0.8)",
-            ]
+            L.append(_text_line("e1_lbl", "e1", font, fs_sm, txt_col, bold, italic, stroke_width, stroke_col, gradient))
+            L.append("        e1_lbl.next_to(axes.c2p(1,0), UR, buff=0.1)")
+            L.append(_text_line("e2_lbl", "e2", font, fs_sm, txt_col, bold, italic, stroke_width, stroke_col, gradient))
+            L.append("        e2_lbl.next_to(axes.c2p(0,1), UR, buff=0.1)")
+            L.append("        self.play(GrowArrow(e1), GrowArrow(e2), FadeIn(e1_lbl, e2_lbl), run_time=0.8)")
         else:
             L.append("        self.play(GrowArrow(e1), GrowArrow(e2), run_time=0.8)")
 
@@ -385,11 +390,9 @@ def build_linear_source(
         "                    stroke_width=5, max_tip_length_to_length_ratio=0.2)",
     ]
     if show_preset_labels:
-        L += [
-            f"        vec_lbl = Text('v=({vx:.2f},{vy:.2f})', {tkw_sm})",
-            "        vec_lbl.next_to(vec.get_end(), UR, buff=0.1)",
-            "        self.play(GrowArrow(vec), FadeIn(vec_lbl), run_time=0.8)",
-        ]
+        L.append(_text_line("vec_lbl", f"v=({vx:.2f},{vy:.2f})", font, fs_sm, txt_col, bold, italic, stroke_width, stroke_col, gradient))
+        L.append("        vec_lbl.next_to(vec.get_end(), UR, buff=0.1)")
+        L.append("        self.play(GrowArrow(vec), FadeIn(vec_lbl), run_time=0.8)")
     else:
         L.append("        self.play(GrowArrow(vec), run_time=0.8)")
 
@@ -401,7 +404,7 @@ def build_linear_source(
         L.append("        self.play(FadeIn(custom_lbl), run_time=0.4)")
 
     if show_preset_labels:
-        L.append(f'        mat_lbl = Text("M = [[{a:.2f}, {b:.2f}], [{c:.2f}, {d:.2f}]]", {tkw})')
+        L.append(_text_line("mat_lbl", f"M = [[{a:.2f}, {b:.2f}], [{c:.2f}, {d:.2f}]]", font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
         if text_content:
             L.append(f"        mat_lbl.next_to(custom_lbl, {det_dir}, buff=0.12).add_background_rectangle()")
         else:
@@ -409,7 +412,9 @@ def build_linear_source(
         L += [
             f'        det_lbl = Text("det = {det:.3f}", {tkw_det})',
             f"        det_lbl.next_to(mat_lbl, {det_dir}, buff=0.15).add_background_rectangle()",
-            f'        res_lbl = Text("Mv = ({tvx:.2f}, {tvy:.2f})", {tkw})',
+        ]
+        L.append(_text_line("res_lbl", f"Mv = ({tvx:.2f}, {tvy:.2f})", font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
+        L += [
             f"        res_lbl.{sec_call}.add_background_rectangle()",
             "        self.play(FadeIn(mat_lbl), run_time=0.6)",
         ]
@@ -428,10 +433,8 @@ def build_linear_source(
         "                     stroke_width=5, max_tip_length_to_length_ratio=0.2)",
     ]
     if show_preset_labels:
-        L += [
-            f"        tvec_lbl = Text('Mv=({tvx:.2f},{tvy:.2f})', {tkw_sm})",
-            "        tvec_lbl.next_to(tvec.get_end(), UR, buff=0.1)",
-        ]
+        L.append(_text_line("tvec_lbl", f"Mv=({tvx:.2f},{tvy:.2f})", font, fs_sm, txt_col, bold, italic, stroke_width, stroke_col, gradient))
+        L.append("        tvec_lbl.next_to(tvec.get_end(), UR, buff=0.1)")
 
     if show_basis:
         L += [
@@ -548,13 +551,13 @@ def build_nonlinear_source(
                           stroke_width, stroke_col, pos_call, gradient, x_offset, y_offset)
 
     if show_preset_labels:
-        title_tkw = tkw_sub if text_content else tkw
-        L.append(f'        title = Text("{title}", {title_tkw})')
+        title_fs = fs_sub if text_content else fs
+        L.append(_text_line("title", title, font, title_fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
         if text_content:
             L.append(f"        title.next_to(custom_lbl, {subtitle_dir}, buff=0.12)")
         else:
             L.append(f"        title.{pos_call}")
-        L.append(f'        subtitle = Text("{subtitle}", {tkw_sub})')
+        L.append(_text_line("subtitle", subtitle, font, fs_sub, txt_col, bold, italic, stroke_width, stroke_col, gradient))
         L.append(f"        subtitle.next_to(title, {subtitle_dir}, buff=0.12)")
         if text_content:
             L.append("        self.play(FadeIn(custom_lbl), FadeIn(title), FadeIn(subtitle), run_time=0.7)")
@@ -748,13 +751,13 @@ def build_streamlines_source(
                           stroke_width, stroke_col, pos_call, gradient, x_offset, y_offset)
 
     if show_preset_labels:
-        title_tkw = tkw_sub if text_content else tkw
-        L.append(f'        title = Text("{title} StreamLines", {title_tkw})')
+        title_fs = fs_sub if text_content else fs
+        L.append(_text_line("title", f"{title} StreamLines", font, title_fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
         if text_content:
             L.append(f"        title.next_to(custom_lbl, {subtitle_dir}, buff=0.12)")
         else:
             L.append(f"        title.{pos_call}")
-        L.append(f'        subtitle = Text("{subtitle}", {tkw_sub})')
+        L.append(_text_line("subtitle", subtitle, font, fs_sub, txt_col, bold, italic, stroke_width, stroke_col, gradient))
         L.append(f"        subtitle.next_to(title, {subtitle_dir}, buff=0.12)")
         if text_content:
             L.append("        self.play(FadeIn(custom_lbl), FadeIn(title), FadeIn(subtitle), run_time=0.7)")

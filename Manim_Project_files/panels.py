@@ -1,8 +1,9 @@
 from PyQt6.QtWidgets import (
     QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QCheckBox, QLineEdit, QTextEdit, QPushButton, QSizePolicy,
+    QGraphicsOpacityEffect,
 )
-from PyQt6.QtGui import QFont, QPainter, QPen, QColor, QBrush
+from PyQt6.QtGui import QFont, QPainter, QPen, QColor, QBrush, QFontDatabase
 from PyQt6.QtCore import Qt, QPointF, pyqtSignal
 
 from theme import C
@@ -63,6 +64,14 @@ FONT_OPTIONS = [
     "Impact",
     "Comic Sans MS",
 ]
+
+
+def _available_fonts():
+    """Filter FONT_OPTIONS to fonts actually installed on this machine.
+    Must be called after QApplication is constructed."""
+    installed = set(QFontDatabase.families())
+    found = [f for f in FONT_OPTIONS if f in installed]
+    return found if found else ["serif"]
 
 # Approximate Manim-space anchor for each preset (frame is ±7.11 × ±4.0)
 _PRESET_XY = {
@@ -218,7 +227,7 @@ def add_text_controls(layout, default_position="top_left", default_color="white"
     for label, key in TEXT_COLOR_OPTIONS:
         col.addItem(label, key)
         stroke_col.addItem(label, key)
-    font.addItems(FONT_OPTIONS)
+    font.addItems(_available_fonts())
     for label, key in GRADIENT_OPTIONS:
         gradient.addItem(label, key)
 
@@ -260,9 +269,13 @@ def add_text_controls(layout, default_position="top_left", default_color="white"
     cb_labels = QCheckBox("Preset Labels")
     cb_labels.setChecked(True)
 
+    col_lbl = QLabel("Color")
+    _col_lbl_fx = QGraphicsOpacityEffect(); col_lbl.setGraphicsEffect(_col_lbl_fx)
+    _col_fx     = QGraphicsOpacityEffect(); col.setGraphicsEffect(_col_fx)
+
     row.addWidget(QLabel("Label"),    0, 0); row.addWidget(text_inp,   0, 1)
     row.addWidget(QLabel("Position"), 1, 0); row.addWidget(pos,        1, 1)
-    row.addWidget(QLabel("Color"),    2, 0); row.addWidget(col,        2, 1)
+    row.addWidget(col_lbl,            2, 0); row.addWidget(col,        2, 1)
     row.addWidget(QLabel("Font"),     3, 0); row.addWidget(font,       3, 1)
     row.addWidget(QLabel("Size"),     4, 0); row.addWidget(size_inp,   4, 1)
     row.addWidget(QLabel("Gradient"), 5, 0); row.addWidget(gradient,   5, 1)
@@ -285,7 +298,18 @@ def add_text_controls(layout, default_position="top_left", default_color="white"
     hint_lbl.setWordWrap(True)
 
     def _sync_all():
-        is_free = pos.currentData() == "free"
+        is_free     = pos.currentData() == "free"
+        is_gradient = gradient.currentData() != "none"
+
+        # Color and gradient are mutually exclusive
+        col.setEnabled(not is_gradient)
+        if is_gradient:
+            _col_lbl_fx.setOpacity(0.3)
+            _col_fx.setOpacity(0.3)
+        else:
+            _col_lbl_fx.setOpacity(1.0)
+            _col_fx.setOpacity(1.0)
+
         x_lbl.setText("X Pos" if is_free else "X Offset")
         y_lbl.setText("Y Pos" if is_free else "Y Offset")
         preview.set_free_mode(is_free)
@@ -308,6 +332,7 @@ def add_text_controls(layout, default_position="top_left", default_color="white"
         y_off.blockSignals(False)
 
     pos.currentIndexChanged.connect(lambda _: _sync_all())
+    gradient.currentIndexChanged.connect(lambda _: _sync_all())
     x_off.valueChanged.connect(lambda _: _sync_all())
     y_off.valueChanged.connect(lambda _: _sync_all())
     preview.position_dragged.connect(_on_dragged)
