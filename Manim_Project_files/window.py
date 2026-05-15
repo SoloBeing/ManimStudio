@@ -260,15 +260,22 @@ class RightPanel(QWidget):
         self.log.setFont(QFont("Fira Code,Courier New", 9))
         root.addWidget(self.log)
 
-        self.latex_notice = QLabel(
-            "LaTeX not installed - MathTex / Tex objects unavailable. "
-            "Install TinyTeX to enable math rendering."
+        self.latex_notice = QPushButton(
+            "⚠  LaTeX not installed — MathTex / Tex objects unavailable. "
+            "Install TinyTeX to enable math rendering.  (Click for details)"
         )
-        self.latex_notice.setWordWrap(True)
+        self.latex_notice.setFlat(True)
+        self.latex_notice.setCursor(Qt.CursorShape.PointingHandCursor)
         self.latex_notice.setStyleSheet(
-            "background:#2a1800; color:#e8a020;"
+            "QPushButton {"
+            " background:#2a1800; color:#e8a020;"
             " border:1px solid #6b3a00; border-radius:4px;"
             " padding:5px 8px; font-size:10px;"
+            " text-align:left;"
+            "}"
+            "QPushButton:hover {"
+            " background:#3a2200; border-color:#a05800;"
+            "}"
         )
         self.latex_notice.hide()
         root.addWidget(self.latex_notice)
@@ -386,7 +393,6 @@ class MainWindow(QMainWindow):
 
     def _check_latex(self):
         latex_ok = bool(shutil.which("latex") and shutil.which("dvisvgm"))
-        _dir = os.path.dirname(_LATEX_WARNED_FLAG)
 
         if latex_ok:
             if os.path.exists(_LATEX_READY_FLAG):
@@ -408,33 +414,49 @@ class MainWindow(QMainWindow):
         else:
             if os.path.exists(_LATEX_WARNED_FLAG):
                 self.right.show_latex_notice()
+                self.right.latex_notice.clicked.connect(self._reshow_latex_dialog)
                 return
-            missing = [t for t in ("latex", "dvisvgm") if not shutil.which(t)]
-            sys_name = platform.system()
-            if sys_name == "Windows":
-                cmd = "winget install TinyTeX-org.TinyTeX"
-            elif sys_name == "Darwin":
-                cmd = 'curl -sL "https://yihui.org/tinytex/install-bin-unix.sh" | sh'
-            else:
-                cmd = 'wget -qO- "https://yihui.org/tinytex/install-bin-unix.sh" | sh'
-            msg = QMessageBox(self)
+            self._show_latex_missing_dialog(with_checkbox=True)
+            self.right.show_latex_notice()
+            self.right.latex_notice.clicked.connect(self._reshow_latex_dialog)
+
+    def _show_latex_missing_dialog(self, with_checkbox):
+        missing = [t for t in ("latex", "dvisvgm") if not shutil.which(t)]
+        sys_name = platform.system()
+        if sys_name == "Windows":
+            cmd = "winget install TinyTeX-org.TinyTeX"
+        elif sys_name == "Darwin":
+            cmd = 'curl -sL "https://yihui.org/tinytex/install-bin-unix.sh" | sh'
+        else:
+            cmd = 'wget -qO- "https://yihui.org/tinytex/install-bin-unix.sh" | sh'
+        msg = QMessageBox(self)
+        if with_checkbox:
             msg.setWindowTitle("LaTeX Not Found")
             msg.setIcon(QMessageBox.Icon.Warning)
-            msg.setText(
-                f"<b>{', '.join(missing)}</b> not found on PATH.<br><br>"
-                "<tt>Text()</tt> animations work fine without it — LaTeX is only needed "
-                "for <tt>MathTex()</tt> and <tt>Tex()</tt> objects.<br><br>"
-                "Install <b>TinyTeX</b> to enable math rendering:<br>"
-                f"<tt>{cmd}</tt>"
-            )
-            msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+        else:
+            msg.setWindowTitle("LaTeX Setup")
+            msg.setIcon(QMessageBox.Icon.Information)
+        msg.setText(
+            f"<b>{', '.join(missing)}</b> not found on PATH.<br><br>"
+            "<tt>Text()</tt> animations work fine without it — LaTeX is only needed "
+            "for <tt>MathTex()</tt> and <tt>Tex()</tt> objects.<br><br>"
+            "Install <b>TinyTeX</b> to enable math rendering:<br>"
+            f"<tt>{cmd}</tt>"
+        )
+        msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+        if with_checkbox:
             cb = QCheckBox("Don't show this again")
             msg.setCheckBox(cb)
             msg.exec()
             if cb.isChecked():
+                _dir = os.path.dirname(_LATEX_WARNED_FLAG)
                 os.makedirs(_dir, exist_ok=True)
                 open(_LATEX_WARNED_FLAG, "w").close()
-            self.right.show_latex_notice()
+        else:
+            msg.exec()
+
+    def _reshow_latex_dialog(self):
+        self._show_latex_missing_dialog(with_checkbox=False)
 
     def _select_panel(self, idx):
         self.left.selector.setCurrentIndex(idx)

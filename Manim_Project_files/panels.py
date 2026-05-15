@@ -100,7 +100,7 @@ class PositionPreview(QWidget):
         self.setFixedHeight(110)
         self.setMinimumWidth(180)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.setToolTip("Text-position preview — drag in Free mode to reposition")
+
         self._mx = 0.0
         self._my = 0.0
         self._free = False

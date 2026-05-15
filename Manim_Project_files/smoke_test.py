@@ -703,6 +703,88 @@ def test_real_render_save():
 
 
 # ===========================================================================
+# [15] Free-position preset labels → builders never emit .__FREE__ sentinel
+# ===========================================================================
+
+def test_free_position_preset_labels():
+    print("\n[15] Free-position preset labels → no .__FREE__ in generated source ... ", end="", flush=True)
+
+    script = textwrap.dedent(f"""\
+        import sys
+        sys.path.insert(0, {HERE!r})
+        from builders import (
+            build_trig_source, build_complex_source, build_linear_source,
+            build_nonlinear_source, build_streamlines_source,
+        )
+
+        COMMON = dict(
+            text_position="free", show_preset_labels=True,
+            x_offset=1.5, y_offset=2.0,
+        )
+
+        sources = {{
+            "trig":        build_trig_source(
+                                True, False, False, 1, 1, 0, 0, 4, False, "Create",
+                                **COMMON),
+            "complex":     build_complex_source("roots", 0, 0, 1, 6, True, **COMMON),
+            "linear":      build_linear_source(1, 0, 0, 1, 1, 1, True, True, True, **COMMON),
+            "nonlinear":   build_nonlinear_source("swirl", 1, 1, False, False, **COMMON),
+            "streamlines": build_streamlines_source("vortex", 1, 0.5, 1, 1, 2, True, True, **COMMON),
+        }}
+
+        for name, src in sources.items():
+            assert ".__FREE__" not in src, f"{{name}} builder emitted .__FREE__ in output"
+            assert "move_to" in src,       f"{{name}} builder missing move_to for free position"
+
+        print("ok")
+    """)
+
+    r = _run(script)
+    if _ok(r):
+        print(PASS); return True
+    print(FAIL); _show_err(r); return False
+
+
+# ===========================================================================
+# [16] latex_notice is a clickable QPushButton with pointer cursor
+# ===========================================================================
+
+def test_latex_notice_is_clickable():
+    print("\n[16] latex_notice is QPushButton with pointer cursor ... ", end="", flush=True)
+
+    script = textwrap.dedent(f"""\
+        import sys
+        sys.path.insert(0, {HERE!r})
+        import os
+        os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+        from PyQt6.QtWidgets import QApplication, QPushButton
+        from PyQt6.QtGui import QFont
+        from PyQt6.QtCore import Qt
+        app = QApplication(sys.argv)
+        app.setFont(QFont("Monospace", 10))
+        from window import MainWindow
+        win = MainWindow()
+        win.show()
+
+        notice = win.right.latex_notice
+        assert isinstance(notice, QPushButton), \
+            f"latex_notice is {{type(notice).__name__}}, expected QPushButton"
+        assert notice.isFlat(), \
+            "latex_notice QPushButton should be flat"
+        assert notice.cursor().shape() == Qt.CursorShape.PointingHandCursor, \
+            "latex_notice should have PointingHandCursor"
+        assert "(click" in notice.text().lower(), \
+            "latex_notice text should hint that it is clickable"
+        print("ok")
+    """)
+
+    r = _run(script)
+    if _ok(r):
+        print(PASS); return True
+    print(FAIL); _show_err(r); return False
+
+
+# ===========================================================================
 # Known gap
 # ===========================================================================
 
@@ -732,6 +814,8 @@ FAST_TESTS = [
     ("Quit unsaved → Save → file saved",          test_quit_unsaved_save),
     ("New render clears stale pending",           test_new_render_clears_pending),
     ("Quit clean (no pending) → instant close",   test_quit_clean),
+    ("Free-position preset labels → no __FREE__", test_free_position_preset_labels),
+    ("latex_notice is clickable QPushButton",     test_latex_notice_is_clickable),
 ]
 
 SLOW_TESTS = [

@@ -22,6 +22,18 @@ TEXT_POSITIONS = {
     "free":          ("__FREE__", "__FREE__", "DOWN"),
 }
 
+def _place_label(varname, pos_call, x_offset, y_offset, suffix=None):
+    """Emit a placement line for a preset label, handling the __FREE__ sentinel."""
+    if pos_call == "__FREE__":
+        x, y = float(x_offset or 0), float(y_offset or 0)
+        line = f"        {varname}.move_to(RIGHT * {x:.2f} + UP * {y:.2f})"
+    else:
+        line = f"        {varname}.{pos_call}"
+    if suffix:
+        line += f".{suffix}"
+    return line
+
+
 TEXT_COLORS = {
     "white":       "WHITE",
     "blue":        "BLUE",
@@ -190,7 +202,7 @@ def build_trig_source(
                 if text_content:
                     L.append(f"        {lv}.next_to(custom_lbl, {stack_dir}, buff=0.12)")
                 else:
-                    L.append(f"        {lv}.{pos_call}")
+                    L.append(_place_label(lv, pos_call, x_offset, y_offset))
             else:
                 L.append(f"        {lv}.next_to(lbl{i - 1}, {stack_dir}, buff=0.12)")
         if anim == "Create":
@@ -276,7 +288,7 @@ def build_complex_source(
     else:
         if show_preset_labels:
             L.append(_text_line("title", mode, font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
-            L.append(f"        title.{pos_call}")
+            L.append(_place_label("title", pos_call, x_offset, y_offset))
             L.append("        self.play(Create(plane), FadeIn(title), run_time=1.2)")
         else:
             L.append("        self.play(Create(plane), run_time=1.2)")
@@ -408,14 +420,14 @@ def build_linear_source(
         if text_content:
             L.append(f"        mat_lbl.next_to(custom_lbl, {det_dir}, buff=0.12).add_background_rectangle()")
         else:
-            L.append(f"        mat_lbl.{pos_call}.add_background_rectangle()")
+            L.append(_place_label("mat_lbl", pos_call, x_offset, y_offset, "add_background_rectangle()"))
         L += [
             f'        det_lbl = Text("det = {det:.3f}", {tkw_det})',
             f"        det_lbl.next_to(mat_lbl, {det_dir}, buff=0.15).add_background_rectangle()",
         ]
         L.append(_text_line("res_lbl", f"Mv = ({tvx:.2f}, {tvy:.2f})", font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
         L += [
-            f"        res_lbl.{sec_call}.add_background_rectangle()",
+            _place_label("res_lbl", sec_call, x_offset, y_offset, "add_background_rectangle()"),
             "        self.play(FadeIn(mat_lbl), run_time=0.6)",
         ]
         if show_det:
@@ -556,7 +568,7 @@ def build_nonlinear_source(
         if text_content:
             L.append(f"        title.next_to(custom_lbl, {subtitle_dir}, buff=0.12)")
         else:
-            L.append(f"        title.{pos_call}")
+            L.append(_place_label("title", pos_call, x_offset, y_offset))
         L.append(_text_line("subtitle", subtitle, font, fs_sub, txt_col, bold, italic, stroke_width, stroke_col, gradient))
         L.append(f"        subtitle.next_to(title, {subtitle_dir}, buff=0.12)")
         if text_content:
@@ -756,7 +768,7 @@ def build_streamlines_source(
         if text_content:
             L.append(f"        title.next_to(custom_lbl, {subtitle_dir}, buff=0.12)")
         else:
-            L.append(f"        title.{pos_call}")
+            L.append(_place_label("title", pos_call, x_offset, y_offset))
         L.append(_text_line("subtitle", subtitle, font, fs_sub, txt_col, bold, italic, stroke_width, stroke_col, gradient))
         L.append(f"        subtitle.next_to(title, {subtitle_dir}, buff=0.12)")
         if text_content:
