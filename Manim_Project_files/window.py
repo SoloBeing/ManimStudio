@@ -22,7 +22,7 @@ from panels import TrigPanel, ComplexPanel, LinearPanel, CodePanel, StreamLinesP
 
 
 class LeftPanel(QWidget):
-    render_requested = pyqtSignal(str)
+    render_requested = pyqtSignal(str, str)
 
     def __init__(self):
         super().__init__()
@@ -162,7 +162,9 @@ class LeftPanel(QWidget):
         ][self.selector.currentIndex()]
 
     def _render(self):
-        self.render_requested.emit(self._active().source())
+        panel = self._active()
+        scene = panel.scene_name() if hasattr(panel, 'scene_name') else ""
+        self.render_requested.emit(panel.source(), scene)
 
 
 class RightPanel(QWidget):
@@ -493,7 +495,7 @@ class MainWindow(QMainWindow):
             self.right.set_log_visible(False)
             self._sb.showMessage("Build Log closed")
 
-    def _render(self, source: str):
+    def _render(self, source: str, scene_name: str = ""):
         if self._thread and self._thread.isRunning():
             return
         self._clear_pending_render(delete=True)
@@ -507,7 +509,7 @@ class MainWindow(QMainWindow):
         self._sb.showMessage("Rendering...")
 
         self._render_label = self.left.current_label()
-        self._thread = RenderThread(source, flags, self.left.output_dir)
+        self._thread = RenderThread(source, flags, self.left.output_dir, scene_name)
         self._thread.log.connect(self.right.append_log)
         self._thread.done.connect(self._done)
         self._thread.start()

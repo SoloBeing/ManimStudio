@@ -16,31 +16,42 @@ except OSError:
     RENDERS_DIR = tempfile.gettempdir()
 
 
+def _base_name(base: ast.expr) -> str:
+    if isinstance(base, ast.Name):      return base.id
+    if isinstance(base, ast.Attribute): return base.attr
+    return ""
+
+def find_all_scene_classes(tree: ast.AST) -> list[str]:
+    """Return scene class names in source order (bases containing 'Scene')."""
+    names = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            if any("Scene" in _base_name(b) for b in node.bases):
+                names.append(node.name)
+    return names
+
 def _find_scene_class(tree: ast.AST) -> str | None:
-    """Return the last class whose base contains 'Scene', else the last class."""
-    scene_cls = None
+    """Single-scene fallback: first Scene subclass, else last class defined."""
+    found = find_all_scene_classes(tree)
+    if found:
+        return found[0]
     any_cls = None
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
             any_cls = node.name
-            for base in node.bases:
-                base_name = base.id if isinstance(base, ast.Name) else (
-                    base.attr if isinstance(base, ast.Attribute) else "")
-                if "Scene" in base_name:
-                    scene_cls = node.name
-                    break
-    return scene_cls or any_cls
+    return any_cls
 
 
 class RenderThread(QThread):
     log  = pyqtSignal(str)
     done = pyqtSignal(str)
 
-    def __init__(self, source: str, flags: list, output_dir: str):
+    def __init__(self, source: str, flags: list, output_dir: str, scene_name: str = ""):
         super().__init__()
         self.source      = source
         self.flags       = flags
         self.output_dir  = output_dir
+        self._scene_name = scene_name
         self._proc       = None
         self._stopped    = False
         self.render_stem = None  # stem of the temp script; set in run() for cleanup
@@ -53,7 +64,7 @@ class RenderThread(QThread):
             self.done.emit("")
             return
 
-        scene_name = _find_scene_class(tree)
+        scene_name = self._scene_name or _find_scene_class(tree)
         if not scene_name:
             self.log.emit("[ERROR] No scene class found in source.")
             self.done.emit("")

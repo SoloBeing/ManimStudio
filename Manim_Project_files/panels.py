@@ -1,13 +1,16 @@
+import ast
+
 from PyQt6.QtWidgets import (
     QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QCheckBox, QLineEdit, QTextEdit, QPushButton, QSizePolicy,
-    QGraphicsOpacityEffect,
+    QGraphicsOpacityEffect, QComboBox,
 )
 from PyQt6.QtGui import QFont, QPainter, QPen, QColor, QBrush, QFontDatabase
 from PyQt6.QtCore import Qt, QPointF, pyqtSignal
 
 from theme import C
 from widgets import sep, hdr, Knob, SpinBox, ComboBox
+from renderer import find_all_scene_classes
 from builders import (
     build_trig_source, build_complex_source,
     build_linear_source, build_nonlinear_source, build_code_source,
@@ -873,15 +876,48 @@ class PlaygroundPanel(QGroupBox):
             f" font-size:11px; padding:6px; }}"
         )
         self.editor.setText(_PLAYGROUND_TEMPLATE)
+        self.editor.textChanged.connect(self._refresh_scenes)
         v.addWidget(self.editor, stretch=1)
 
-        note = QLabel("Scene class name is detected automatically — name it anything")
-        note.setObjectName("dim")
-        note.setStyleSheet(f"color:{C['dim']};font-size:9px;")
-        v.addWidget(note)
+        scene_row = QHBoxLayout()
+        scene_lbl = QLabel("SCENE")
+        scene_lbl.setObjectName("dim")
+        scene_lbl.setStyleSheet(f"color:{C['accent3']};font-size:10px;font-weight:700;")
+        self._scene_combo = QComboBox()
+        self._scene_combo.setObjectName("statusCombo")
+        self._scene_combo.setToolTip("Select which scene class to render")
+        scene_row.addWidget(scene_lbl)
+        scene_row.addWidget(self._scene_combo, stretch=1)
+        v.addLayout(scene_row)
+
+        self._refresh_scenes()
+
+    def _refresh_scenes(self):
+        current = self._scene_combo.currentText()
+        try:
+            tree = ast.parse(self.editor.toPlainText())
+            names = find_all_scene_classes(tree)
+        except SyntaxError:
+            names = []
+        self._scene_combo.blockSignals(True)
+        self._scene_combo.clear()
+        if names:
+            self._scene_combo.addItems(names)
+            idx = self._scene_combo.findText(current)
+            self._scene_combo.setCurrentIndex(idx if idx >= 0 else 0)
+            self._scene_combo.setEnabled(True)
+        else:
+            self._scene_combo.addItem("No scene detected")
+            self._scene_combo.setEnabled(False)
+        self._scene_combo.blockSignals(False)
 
     def _reset(self):
         self.editor.setText(_PLAYGROUND_TEMPLATE)
 
     def source(self):
         return self.editor.toPlainText()
+
+    def scene_name(self) -> str:
+        if self._scene_combo.isEnabled():
+            return self._scene_combo.currentText()
+        return ""
