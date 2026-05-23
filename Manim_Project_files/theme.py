@@ -116,4 +116,6 @@ QTextEdit {{ background:{C['bg1']}; border:1px solid {C['border']};
 QStatusBar {{ background:{C['bg2']}; border-top:1px solid {C['border']};
     color:{C['accent3']}; font-size:10px; }}
 QVideoWidget {{ background:{C['bg0']}; border-radius:8px; }}
+QToolTip {{ background:{C['bg2']}; color:{C['text']}; border:1px solid {C['border']};
+    border-radius:4px; padding:3px 7px; font-size:10px; }}
 """
