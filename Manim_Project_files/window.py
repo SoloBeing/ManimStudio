@@ -306,8 +306,31 @@ class RightPanel(QWidget):
         self.latex_notice.hide()
         root.addWidget(self.latex_notice)
 
+        self.opengl_notice = QPushButton(
+            "⚠  OpenGL renderer unavailable — glfw is not installed. "
+            "Run:  pip install glfw  to enable GPU-accelerated rendering."
+        )
+        self.opengl_notice.setFlat(True)
+        self.opengl_notice.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.opengl_notice.setStyleSheet(
+            "QPushButton {"
+            " background:#001a2e; color:#58a6ff;"
+            " border:1px solid #1f4e79; border-radius:4px;"
+            " padding:5px 8px; font-size:10px;"
+            " text-align:left;"
+            "}"
+            "QPushButton:hover {"
+            " background:#002a47; border-color:#388bdb;"
+            "}"
+        )
+        self.opengl_notice.hide()
+        root.addWidget(self.opengl_notice)
+
     def show_latex_notice(self):
         self.latex_notice.show()
+
+    def show_opengl_notice(self):
+        self.opengl_notice.show()
 
     def set_empty_state(self, title, note):
         self.empty_title.setText(title)
@@ -416,6 +439,7 @@ class MainWindow(QMainWindow):
         self.right.btn_discard.clicked.connect(self._discard_pending_render)
 
         QTimer.singleShot(300, self._check_latex)
+        QTimer.singleShot(300, self._check_opengl)
 
     def _check_latex(self):
         latex_ok = bool(shutil.which("latex") and shutil.which("dvisvgm"))
@@ -445,6 +469,12 @@ class MainWindow(QMainWindow):
             self._show_latex_missing_dialog(with_checkbox=True)
             self.right.show_latex_notice()
             self.right.latex_notice.clicked.connect(self._reshow_latex_dialog)
+
+    def _check_opengl(self):
+        try:
+            import glfw as _glfw  # noqa: F401
+        except ImportError:
+            self.right.show_opengl_notice()
 
     def _show_latex_missing_dialog(self, with_checkbox):
         missing = [t for t in ("latex", "dvisvgm") if not shutil.which(t)]
