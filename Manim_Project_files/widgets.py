@@ -145,6 +145,18 @@ class PythonHighlighter(QSyntaxHighlighter):
         'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise',
         'return', 'try', 'while', 'with', 'yield',
     })
+    _BUILTINS = frozenset({
+        'abs', 'all', 'any', 'bin', 'bool', 'breakpoint', 'bytearray',
+        'bytes', 'callable', 'chr', 'classmethod', 'compile', 'complex',
+        'delattr', 'dict', 'dir', 'divmod', 'enumerate', 'eval', 'exec',
+        'filter', 'float', 'format', 'frozenset', 'getattr', 'globals',
+        'hasattr', 'hash', 'help', 'hex', 'id', 'input', 'int', 'isinstance',
+        'issubclass', 'iter', 'len', 'list', 'locals', 'map', 'max',
+        'memoryview', 'min', 'next', 'object', 'oct', 'open', 'ord', 'pow',
+        'print', 'property', 'range', 'repr', 'reversed', 'round', 'set',
+        'setattr', 'slice', 'sorted', 'staticmethod', 'str', 'sum', 'super',
+        'tuple', 'type', 'vars', 'zip',
+    })
     _MANIM = frozenset({
         'Scene', 'ThreeDScene', 'MovingCameraScene', 'ZoomedScene',
         'VectorScene', 'LinearTransformationScene',
@@ -181,9 +193,11 @@ class PythonHighlighter(QSyntaxHighlighter):
 
         mn_pat  = '|'.join(_re.escape(k) for k in sorted(self._MANIM,    key=len, reverse=True))
         kw_pat  = '|'.join(_re.escape(k) for k in sorted(self._KEYWORDS, key=len, reverse=True))
+        bi_pat  = '|'.join(_re.escape(k) for k in sorted(self._BUILTINS, key=len, reverse=True))
 
         self._rules = [
             (_re.compile(rf'\b(?:{mn_pat})\b'),  _fmt('#e3b341', bold=True)),
+            (_re.compile(rf'\b(?:{bi_pat})\b'),  _fmt('#56d364')),
             (_re.compile(rf'\b(?:{kw_pat})\b'),  _fmt('#58a6ff', bold=True)),
             (_re.compile(r'\bself\b|\bcls\b'),   _fmt('#79c0ff')),
             (_re.compile(r'@\w+'),               _fmt('#d2a8ff')),
