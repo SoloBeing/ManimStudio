@@ -16,6 +16,22 @@ except OSError:
     RENDERS_DIR = tempfile.gettempdir()
 
 
+def _find_scene_class(tree: ast.AST) -> str | None:
+    """Return the last class whose base contains 'Scene', else the last class."""
+    scene_cls = None
+    any_cls = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            any_cls = node.name
+            for base in node.bases:
+                base_name = base.id if isinstance(base, ast.Name) else (
+                    base.attr if isinstance(base, ast.Attribute) else "")
+                if "Scene" in base_name:
+                    scene_cls = node.name
+                    break
+    return scene_cls or any_cls
+
+
 class RenderThread(QThread):
     log  = pyqtSignal(str)
     done = pyqtSignal(str)
@@ -31,9 +47,15 @@ class RenderThread(QThread):
 
     def run(self):
         try:
-            ast.parse(self.source)
+            tree = ast.parse(self.source)
         except SyntaxError as e:
             self.log.emit(f"[SYNTAX ERROR] line {e.lineno}: {e.msg}")
+            self.done.emit("")
+            return
+
+        scene_name = _find_scene_class(tree)
+        if not scene_name:
+            self.log.emit("[ERROR] No scene class found in source.")
             self.done.emit("")
             return
 
@@ -48,9 +70,9 @@ class RenderThread(QThread):
         try:
             os.makedirs(self.output_dir, exist_ok=True)
             if getattr(sys, "frozen", False):
-                cmd = [sys.executable, "--run-manim"] + self.flags + ["--media_dir", self.output_dir, tmp, "ManimScene"]
+                cmd = [sys.executable, "--run-manim"] + self.flags + ["--media_dir", self.output_dir, tmp, scene_name]
             else:
-                cmd = ["manim"] + self.flags + ["--media_dir", self.output_dir, tmp, "ManimScene"]
+                cmd = ["manim"] + self.flags + ["--media_dir", self.output_dir, tmp, scene_name]
             kw = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {"start_new_session": True}
             self._proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE,

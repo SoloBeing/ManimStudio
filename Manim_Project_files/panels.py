@@ -837,7 +837,7 @@ from manim import *
 
 class ManimScene(Scene):
     def construct(self):
-        # Write any Manim code here — the class MUST be named ManimScene
+        # Write any Manim code here — name the class anything you like
 
         circle = Circle(radius=1.5, color=BLUE)
         square = Square(side_length=2.5, color=RED)
@@ -875,7 +875,7 @@ class PlaygroundPanel(QGroupBox):
         self.editor.setText(_PLAYGROUND_TEMPLATE)
         v.addWidget(self.editor, stretch=1)
 
-        note = QLabel("The scene class must be named  ManimScene")
+        note = QLabel("Scene class name is detected automatically — name it anything")
         note.setObjectName("dim")
         note.setStyleSheet(f"color:{C['dim']};font-size:9px;")
         v.addWidget(note)
