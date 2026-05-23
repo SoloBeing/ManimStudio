@@ -113,7 +113,12 @@ class LeftPanel(QWidget):
         row2 = QHBoxLayout()
         row2.setSpacing(6)
         self.opengl = QCheckBox("OpenGL")
-        self.opengl.setToolTip("GPU-accelerated renderer — faster for complex scenes")
+        try:
+            import glfw as _glfw  # noqa: F401
+            self.opengl.setToolTip("GPU-accelerated renderer — faster for complex scenes")
+        except ImportError:
+            self.opengl.setEnabled(False)
+            self.opengl.setToolTip("OpenGL renderer unavailable — install glfw:  pip install glfw")
 
         self.btn_run = QPushButton("Render")
         self.btn_run.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
