@@ -9,7 +9,7 @@ from PyQt6.QtGui import QFont, QPainter, QPen, QColor, QBrush, QFontDatabase
 from PyQt6.QtCore import Qt, QPointF, pyqtSignal
 
 from theme import C
-from widgets import sep, hdr, Knob, SpinBox, ComboBox
+from widgets import sep, hdr, Knob, SpinBox, ComboBox, CodeEditor, PythonHighlighter
 from renderer import find_all_scene_classes
 from builders import (
     build_trig_source, build_complex_source,
@@ -867,15 +867,16 @@ class PlaygroundPanel(QGroupBox):
         hdr_row.addWidget(btn_reset)
         v.addLayout(hdr_row)
 
-        self.editor = QTextEdit()
-        self.editor.setFont(QFont("JetBrains Mono,Fira Code,Consolas", 10))
+        self.editor = CodeEditor()
+        self.editor.setFont(QFont("JetBrains Mono,Fira Code,Consolas", 11))
         self.editor.setStyleSheet(
-            f"QTextEdit {{ background:#060d14; color:{C['text']};"
+            f"QPlainTextEdit {{ background:#060d14; color:{C['text']};"
             f" border:1px solid {C['border']}; border-radius:6px;"
             f" font-family:'JetBrains Mono','Fira Code','Consolas',monospace;"
             f" font-size:11px; padding:6px; }}"
         )
-        self.editor.setText(_PLAYGROUND_TEMPLATE)
+        PythonHighlighter(self.editor.document())
+        self.editor.setPlainText(_PLAYGROUND_TEMPLATE)
         self.editor.textChanged.connect(self._refresh_scenes)
         v.addWidget(self.editor, stretch=1)
 
@@ -912,7 +913,7 @@ class PlaygroundPanel(QGroupBox):
         self._scene_combo.blockSignals(False)
 
     def _reset(self):
-        self.editor.setText(_PLAYGROUND_TEMPLATE)
+        self.editor.setPlainText(_PLAYGROUND_TEMPLATE)
 
     def source(self):
         return self.editor.toPlainText()
