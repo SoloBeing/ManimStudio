@@ -182,7 +182,7 @@ class LeftPanel(QWidget):
     def extra_flags(self) -> list:
         flags = ["--fps", self.fps.currentText().split()[0]]
         if self.opengl.isChecked():
-            flags += ["--renderer", "opengl"]
+            flags += ["--renderer", "opengl", "--write_to_movie"]
         return flags
 
     def _render(self):
