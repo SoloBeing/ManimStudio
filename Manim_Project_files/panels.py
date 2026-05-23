@@ -870,12 +870,11 @@ class PlaygroundPanel(QGroupBox):
         self.editor = CodeEditor()
         self.editor.setFont(QFont("JetBrains Mono,Fira Code,Consolas", 11))
         self.editor.setStyleSheet(
-            f"QPlainTextEdit {{ background:#060d14; color:{C['text']};"
+            f"QPlainTextEdit {{ background:#060d14;"
             f" border:1px solid {C['border']}; border-radius:6px;"
-            f" font-family:'JetBrains Mono','Fira Code','Consolas',monospace;"
             f" font-size:11px; padding:6px; }}"
         )
-        PythonHighlighter(self.editor.document())
+        self._highlighter = PythonHighlighter(self.editor.document())
         self.editor.setPlainText(_PLAYGROUND_TEMPLATE)
         self.editor.textChanged.connect(self._refresh_scenes)
         v.addWidget(self.editor, stretch=1)
