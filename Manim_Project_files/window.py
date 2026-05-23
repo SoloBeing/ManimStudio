@@ -1,4 +1,4 @@
-import os, shutil, platform
+import os, shutil, platform, html as _html
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -370,8 +370,14 @@ class RightPanel(QWidget):
         self.player.stop()
         self.player.setSource(QUrl())
 
-    def append_log(self, msg):
-        self.log.append(msg)
+    def append_log(self, msg: str):
+        if msg.startswith(("[SYNTAX ERROR]", "[ERROR]")):
+            color = C['red']
+        elif msg.startswith("[WARN]"):
+            color = C['accent3']
+        else:
+            color = C['teal']
+        self.log.append(f'<span style="color:{color}">{_html.escape(msg)}</span>')
         sb = self.log.verticalScrollBar()
         sb.setValue(sb.maximum())
 
