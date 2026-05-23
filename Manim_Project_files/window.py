@@ -95,12 +95,25 @@ class LeftPanel(QWidget):
         root.addLayout(dir_row)
 
         root.addWidget(sep())
-        bar = QHBoxLayout()
-        bar.setSpacing(6)
 
+        row1 = QHBoxLayout()
+        row1.setSpacing(6)
         self.quality = QComboBox()
         self.quality.addItems(list(QUALITY.keys()))
         self.quality.setFixedWidth(120)
+        self.fps = QComboBox()
+        self.fps.addItems(["60 fps", "30 fps", "24 fps", "15 fps"])
+        self.fps.setFixedWidth(80)
+        self.fps.setToolTip("Frames per second — lower = faster render")
+        row1.addWidget(self.quality)
+        row1.addWidget(self.fps)
+        row1.addStretch()
+        root.addLayout(row1)
+
+        row2 = QHBoxLayout()
+        row2.setSpacing(6)
+        self.opengl = QCheckBox("OpenGL")
+        self.opengl.setToolTip("GPU-accelerated renderer — faster for complex scenes")
 
         self.btn_run = QPushButton("Render")
         self.btn_run.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
@@ -115,11 +128,11 @@ class LeftPanel(QWidget):
         self.btn_stop.setFixedWidth(38)
         self.btn_stop.setEnabled(False)
 
-        bar.addWidget(self.quality)
-        bar.addStretch()
-        bar.addWidget(self.btn_stop)
-        bar.addWidget(self.btn_run)
-        root.addLayout(bar)
+        row2.addWidget(self.opengl)
+        row2.addStretch()
+        row2.addWidget(self.btn_stop)
+        row2.addWidget(self.btn_run)
+        root.addLayout(row2)
 
         self._switch(0)
 
@@ -160,6 +173,12 @@ class LeftPanel(QWidget):
             "streamlines",
             "playground",
         ][self.selector.currentIndex()]
+
+    def extra_flags(self) -> list:
+        flags = ["--fps", self.fps.currentText().split()[0]]
+        if self.opengl.isChecked():
+            flags += ["--renderer", "opengl"]
+        return flags
 
     def _render(self):
         panel = self._active()
@@ -500,7 +519,7 @@ class MainWindow(QMainWindow):
             return
         self._clear_pending_render(delete=True)
         self._render_stopped = False
-        flags = QUALITY[self.left.quality.currentText()]
+        flags = QUALITY[self.left.quality.currentText()] + self.left.extra_flags()
         self.right.log.clear()
         self.right.set_pending_actions(False)
         self.right.set_status("Rendering...", C['accent3'])
