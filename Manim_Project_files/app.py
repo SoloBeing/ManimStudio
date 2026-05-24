@@ -58,18 +58,19 @@ def main():
     if hasattr(signal, "SIGHUP"):
         signal.signal(signal.SIGHUP, _quit)
 
-    webview.start(debug="--debug" in sys.argv)
-
-    # PyWebView schedules QWebEnginePage.deleteLater() then immediately calls
-    # _app.exit(), so the deletion never runs before the profile destructor.
-    # Drain pending events here to avoid the "WebEnginePage still not deleted" warning.
+    # PyWebView calls deleteLater() on the WebEnginePage then immediately exits
+    # the event loop, so the deletion never runs before the profile destructor.
+    # Suppress that specific Qt warning — it is a PyWebView bug, not ours.
     try:
-        from qtpy.QtWidgets import QApplication
-        app = QApplication.instance()
-        if app:
-            app.processEvents()
+        from qtpy.QtCore import qInstallMessageHandler
+        def _qt_msg_handler(msg_type, context, message):
+            if 'WebEnginePage still not deleted' not in message:
+                print(message, file=sys.stderr)
+        qInstallMessageHandler(_qt_msg_handler)
     except Exception:
         pass
+
+    webview.start(debug="--debug" in sys.argv)
 
 
 if __name__ == "__main__":
