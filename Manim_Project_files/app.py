@@ -1,4 +1,4 @@
-import sys, os, signal, runpy
+import sys, os, signal, runpy, atexit
 
 import webview
 from api import Api
@@ -33,8 +33,10 @@ def main():
         background_color="#282c34",
     )
     api._set_window(window)
+    atexit.register(api.cleanup)
 
     def _quit(*_):
+        api.cleanup()
         for w in webview.windows:
             w.destroy()
 
