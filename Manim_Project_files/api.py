@@ -28,15 +28,19 @@ class _SilentHandler(http.server.SimpleHTTPRequestHandler):
         pass
 
 
+_MEDIA_SUBDIRS = ("videos", "images", "texts", "Tex")
+
+
 class Api:
     def __init__(self):
-        self._window     = None
-        self._thread     = None
-        self._lock       = threading.Lock()
-        self._log_lines  = []
-        self._status     = "idle"   # idle | rendering | done | error | stopped
-        self._video_path = ""
-        self._output_dir = RENDERS_DIR
+        self._window      = None
+        self._thread      = None
+        self._lock        = threading.Lock()
+        self._log_lines   = []
+        self._status      = "idle"   # idle | rendering | done | error | stopped
+        self._video_path  = ""
+        self._render_stem = ""       # temp-file stem of the current/last render
+        self._output_dir  = RENDERS_DIR
 
         self._http_port = _free_port()
         handler = lambda *a, **kw: _SilentHandler(*a, directory="/", **kw)
@@ -101,10 +105,13 @@ class Api:
             flags += ["--renderer", "opengl", "--write_to_movie"]
 
         with self._lock:
+            prev_stem        = self._render_stem
             self._log_lines.clear()
-            self._status     = "rendering"
-            self._video_path = ""
+            self._status      = "rendering"
+            self._video_path  = ""
+            self._render_stem = ""
 
+        self._cleanup_render_artifacts(prev_stem)
         self._push({"status": "rendering", "logLines": [], "videoUrl": ""})
 
         self._thread = RenderThread(
@@ -168,20 +175,24 @@ class Api:
         dest = result if isinstance(result, str) else result[0]
         try:
             shutil.copy2(path, dest)
-            return {"ok": True, "path": dest}
         except OSError as e:
             return {"ok": False, "error": str(e)}
+        with self._lock:
+            stem              = self._render_stem
+            self._video_path  = ""
+            self._render_stem = ""
+            self._status      = "idle"
+        self._cleanup_render_artifacts(stem, keep_path=dest)
+        return {"ok": True, "path": dest}
 
     def discard_render(self) -> dict:
         with self._lock:
-            path             = self._video_path
-            self._video_path = ""
-            self._status     = "idle"
-        if path and os.path.exists(path):
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
+            path              = self._video_path
+            stem              = self._render_stem
+            self._video_path  = ""
+            self._render_stem = ""
+            self._status      = "idle"
+        self._cleanup_render_artifacts(stem)
         return {"ok": True}
 
     # ------------------------------------------------------------------
@@ -195,16 +206,43 @@ class Api:
     # Internal
     # ------------------------------------------------------------------
 
+    def _cleanup_render_artifacts(self, stem: str, keep_path: str = ""):
+        if not stem:
+            return
+        keep = os.path.abspath(keep_path) if keep_path else ""
+        out  = self._output_dir
+
+        def _under(parent):
+            try:
+                return os.path.commonpath([keep, os.path.abspath(parent)]) == os.path.abspath(parent)
+            except ValueError:
+                return False
+
+        for subdir in _MEDIA_SUBDIRS:
+            d = os.path.join(out, subdir, stem)
+            if keep and _under(d):
+                continue
+            shutil.rmtree(d, ignore_errors=True)
+
+        # remove any empty parent dirs (videos/, images/, etc.) unless keep_path is inside
+        for subdir in _MEDIA_SUBDIRS:
+            d = os.path.join(out, subdir)
+            if keep and _under(d):
+                continue
+            shutil.rmtree(d, ignore_errors=True)
+
     def _on_log(self, msg: str):
         with self._lock:
             self._log_lines.append(msg)
         self._push({"status": "rendering", "logLine": msg})
 
     def _on_done(self, video_path: str):
+        stem = self._thread.render_stem if self._thread else ""
         if video_path:
             with self._lock:
-                self._video_path = video_path
-                self._status     = "done"
+                self._video_path  = video_path
+                self._render_stem = stem
+                self._status      = "done"
             self._push({"status": "done", "videoUrl": self._video_url(video_path)})
         else:
             with self._lock:
@@ -213,6 +251,7 @@ class Api:
                 with self._lock:
                     self._status = "error"
                 self._push({"status": "error"})
+            self._cleanup_render_artifacts(stem)
 
     def _video_url(self, path: str) -> str:
         if not path:
