@@ -5,6 +5,7 @@ import { Sidebar }     from './components/Sidebar';
 import { MainArea }    from './components/MainArea';
 import { BottomPanel } from './components/BottomPanel';
 import { StatusBar }   from './components/StatusBar';
+import { CloseDialog } from './components/CloseDialog';
 import './App.css';
 
 function getApi() {
@@ -24,6 +25,7 @@ function getApi() {
     browse_output_dir: async () => '',
     save_render: async (): Promise<{ ok: boolean; path?: string; error?: string }> => ({ ok: true }),
     discard_render: async () => ({ ok: true }),
+    confirm_close: async () => ({ ok: true }),
   };
 }
 
@@ -33,19 +35,21 @@ export default function App() {
   const [logLines, setLogLines]     = useState<string[]>([]);
   const [videoUrl, setVideoUrl]     = useState('');
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
-  const [quality, setQuality]       = useState('Med  720p');
-  const [fps, setFps]               = useState('30');
-  const [opengl, setOpengl]         = useState(false);
+  const [quality, setQuality]         = useState('Med  720p');
+  const [fps, setFps]                 = useState('30');
+  const [opengl, setOpengl]           = useState(false);
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
 
   const panelRef = useRef<PanelHandle>(null);
 
   // Register push callback and initialise system info
   useEffect(() => {
     window.__manimState = (state) => {
-      if (state.status)  setStatus(state.status);
+      if (state.status)   setStatus(state.status);
       if (state.videoUrl !== undefined) setVideoUrl(state.videoUrl);
       if (state.logLine)  setLogLines(prev => [...prev, state.logLine!]);
       if (state.logLines?.length) setLogLines(prev => [...prev, ...state.logLines!]);
+      if (state.showCloseDialog)  setShowCloseDialog(true);
     };
 
     function init() {
@@ -107,8 +111,31 @@ export default function App() {
     setStatus('idle');
   }
 
+  async function handleCloseSave() {
+    setShowCloseDialog(false);
+    await getApi().save_render();
+    await getApi().confirm_close();
+  }
+
+  async function handleCloseDiscard() {
+    setShowCloseDialog(false);
+    await getApi().discard_render();
+    await getApi().confirm_close();
+  }
+
+  function handleCloseCancel() {
+    setShowCloseDialog(false);
+  }
+
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {showCloseDialog && (
+        <CloseDialog
+          onSave={handleCloseSave}
+          onDiscard={handleCloseDiscard}
+          onCancel={handleCloseCancel}
+        />
+      )}
       <div className="app-body">
         <ActivityBar active={activeMode} onChange={setActiveMode} />
         <Sidebar activeMode={activeMode} panelRef={panelRef} />

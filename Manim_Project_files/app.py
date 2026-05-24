@@ -1,4 +1,4 @@
-import sys, os, signal, runpy, atexit
+import sys, os, signal, runpy, atexit, threading
 
 import webview
 from api import Api
@@ -35,6 +35,20 @@ def main():
     api._set_window(window)
     atexit.register(api.cleanup)
 
+    def _on_closing():
+        with api._lock:
+            has_unsaved = bool(api._video_path and os.path.exists(api._video_path))
+        if has_unsaved:
+            # Push dialog to JS from a thread — avoid calling evaluate_js
+            # synchronously inside Qt's closeEvent handler.
+            threading.Thread(
+                target=lambda: api._push({"showCloseDialog": True}),
+                daemon=True,
+            ).start()
+            return False  # cancel the close; JS will call confirm_close()
+
+    window.events.closing += _on_closing
+
     def _quit(*_):
         api.cleanup()
         for w in webview.windows:
@@ -45,6 +59,17 @@ def main():
         signal.signal(signal.SIGHUP, _quit)
 
     webview.start(debug="--debug" in sys.argv)
+
+    # PyWebView schedules QWebEnginePage.deleteLater() then immediately calls
+    # _app.exit(), so the deletion never runs before the profile destructor.
+    # Drain pending events here to avoid the "WebEnginePage still not deleted" warning.
+    try:
+        from qtpy.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app:
+            app.processEvents()
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

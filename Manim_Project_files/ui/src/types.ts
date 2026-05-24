@@ -67,6 +67,7 @@ export interface PyWebViewApi {
   browse_output_dir: () => Promise<string>;
   save_render: () => Promise<{ ok: boolean; path?: string; error?: string }>;
   discard_render: () => Promise<{ ok: boolean }>;
+  confirm_close: () => Promise<{ ok: boolean }>;
 }
 
 declare global {
@@ -77,6 +78,7 @@ declare global {
       logLine?: string;
       logLines?: string[];
       videoUrl?: string;
+      showCloseDialog?: boolean;
     }) => void;
   }
 }

@@ -196,6 +196,11 @@ class Api:
         self._cleanup_render_artifacts(stem)
         return {"ok": True}
 
+    def confirm_close(self) -> dict:
+        if self._window:
+            self._window.destroy()
+        return {"ok": True}
+
     # ------------------------------------------------------------------
     def cleanup(self):
         with self._lock:
