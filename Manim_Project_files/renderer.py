@@ -1,6 +1,4 @@
-import sys, os, ast, subprocess, tempfile, shutil, signal
-
-from PyQt6.QtCore import QThread, pyqtSignal
+import sys, os, ast, subprocess, tempfile, shutil, signal, threading
 
 QUALITY = {
     "Low  480p" : ["-ql"],
@@ -42,32 +40,32 @@ def _find_scene_class(tree: ast.AST) -> str | None:
     return any_cls
 
 
-class RenderThread(QThread):
-    log  = pyqtSignal(str)
-    done = pyqtSignal(str)
-
-    def __init__(self, source: str, flags: list, output_dir: str, scene_name: str = ""):
-        super().__init__()
+class RenderThread(threading.Thread):
+    def __init__(self, source: str, flags: list, output_dir: str, scene_name: str = "",
+                 on_log=None, on_done=None):
+        super().__init__(daemon=True)
         self.source      = source
         self.flags       = flags
         self.output_dir  = output_dir
         self._scene_name = scene_name
         self._proc       = None
         self._stopped    = False
-        self.render_stem = None  # stem of the temp script; set in run() for cleanup
+        self.render_stem = None
+        self.on_log  = on_log  or (lambda msg: None)
+        self.on_done = on_done or (lambda path: None)
 
     def run(self):
         try:
             tree = ast.parse(self.source)
         except SyntaxError as e:
-            self.log.emit(f"[SYNTAX ERROR] line {e.lineno}: {e.msg}")
-            self.done.emit("")
+            self.on_log(f"[SYNTAX ERROR] line {e.lineno}: {e.msg}")
+            self.on_done("")
             return
 
         scene_name = self._scene_name or _find_scene_class(tree)
         if not scene_name:
-            self.log.emit("[ERROR] No scene class found in source.")
-            self.done.emit("")
+            self.on_log("[ERROR] No scene class found in source.")
+            self.on_done("")
             return
 
         with tempfile.NamedTemporaryFile(
@@ -93,7 +91,7 @@ class RenderThread(QThread):
             )
             for line in self._proc.stdout:
                 stripped = line.rstrip()
-                self.log.emit(stripped)
+                self.on_log(stripped)
                 full_output.append(stripped)
             self._proc.wait()
         finally:
@@ -127,10 +125,10 @@ class RenderThread(QThread):
                         candidates.append((os.path.getmtime(fp), fp))
             if candidates:
                 video = max(candidates)[1]
-                self.log.emit(f"[INFO] resolved via newest file: {video}")
+                self.on_log(f"[INFO] resolved via newest file: {video}")
 
         if not self._stopped:
-            self.done.emit(video)
+            self.on_done(video)
 
     def stop(self):
         self._stopped = True
