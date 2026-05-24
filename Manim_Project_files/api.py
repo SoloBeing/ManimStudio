@@ -128,6 +128,7 @@ class Api:
             t = self._thread
         if t and t.is_alive():
             t.stop()
+            t.join(timeout=5)
             with self._lock:
                 self._status = "stopped"
             self._push({"status": "stopped"})
@@ -201,6 +202,7 @@ class Api:
             t = self._thread
         if t and t.is_alive():
             t.stop()
+            t.join(timeout=5)
 
     # ------------------------------------------------------------------
     # Internal
