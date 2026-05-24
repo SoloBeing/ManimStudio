@@ -4,14 +4,15 @@ import webview
 from api import Api
 
 
-def _ui_url() -> str:
+def _ui_url(api) -> str:
     if "--dev" in sys.argv:
         return "http://localhost:5173"
     if getattr(sys, "frozen", False):
         base = sys._MEIPASS
     else:
         base = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base, "ui", "dist", "index.html")
+    dist_index = os.path.join(base, "ui", "dist", "index.html")
+    return api.ui_url(dist_index)
 
 
 def main():
@@ -24,7 +25,7 @@ def main():
     api = Api()
     window = webview.create_window(
         title="Manim Studio",
-        url=_ui_url(),
+        url=_ui_url(api),
         js_api=api,
         width=1400,
         height=860,

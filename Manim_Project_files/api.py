@@ -39,9 +39,7 @@ class Api:
         self._output_dir = RENDERS_DIR
 
         self._http_port = _free_port()
-        handler = lambda *a, **kw: _SilentHandler(
-            *a, directory=os.path.expanduser("~"), **kw
-        )
+        handler = lambda *a, **kw: _SilentHandler(*a, directory="/", **kw)
         srv = http.server.HTTPServer(("127.0.0.1", self._http_port), handler)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
 
@@ -212,11 +210,10 @@ class Api:
     def _video_url(self, path: str) -> str:
         if not path:
             return ""
-        try:
-            rel = os.path.relpath(path, os.path.expanduser("~"))
-            return f"http://127.0.0.1:{self._http_port}/{rel}"
-        except ValueError:
-            return ""
+        return f"http://127.0.0.1:{self._http_port}{os.path.abspath(path)}"
+
+    def ui_url(self, dist_index: str) -> str:
+        return f"http://127.0.0.1:{self._http_port}{os.path.abspath(dist_index)}"
 
     def _push(self, state: dict):
         if not self._window:

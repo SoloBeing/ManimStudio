@@ -1,9 +1,9 @@
 import sys, os, ast, subprocess, tempfile, shutil, signal, threading
 
 QUALITY = {
-    "Low  480p" : ["-ql"],
-    "Med  720p" : ["-qm"],
-    "High 1080p": ["-qh"],
+    "Low  480p" : ["-ql", "--format", "webm"],
+    "Med  720p" : ["-qm", "--format", "webm"],
+    "High 1080p": ["-qh", "--format", "webm"],
     "GIF"       : ["-ql", "--format", "gif"],
 }
 
@@ -120,7 +120,7 @@ class RenderThread(threading.Thread):
                 if "partial_movie_files" in root_:
                     continue
                 for fname in files:
-                    if fname.endswith((".mp4", ".gif")):
+                    if fname.endswith((".mp4", ".webm", ".gif")):
                         fp = os.path.join(root_, fname)
                         candidates.append((os.path.getmtime(fp), fp))
             if candidates:

@@ -12,3 +12,4 @@ wheels/
 # Developer-only tools
 Manim_Project_files/smoke_test.py
 Manim_Project_files/smoke_editor_test.py
+Manim_Project_files/smoke_test_v2.py
