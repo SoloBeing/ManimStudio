@@ -37,6 +37,9 @@ export function MainArea({ status, videoUrl, onSave, onDiscard }: MainAreaProps)
           src={videoUrl}
           controls
           autoPlay
+          controlsList="nodownload noremoteplayback"
+          disablePictureInPicture
+          onContextMenu={e => e.preventDefault()}
         />
       )}
 
