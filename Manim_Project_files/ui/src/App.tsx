@@ -42,6 +42,7 @@ export default function App() {
   const [fps, setFps]                 = useState('30');
   const [opengl, setOpengl]           = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const [outputDir, setOutputDir] = useState('');
   const [latexDialog, setLatexDialog] = useState<{ missing: string[]; installCmd: string; withDontShow: boolean } | null>(null);
 
   const panelRef = useRef<PanelHandle>(null);
@@ -59,6 +60,7 @@ export default function App() {
     function init() {
       getApi().get_system_info().then(info => {
         setSystemInfo(info);
+        setOutputDir(info.outputDir);
         setQuality(info.qualities[1] ?? info.qualities[0]);
         setFps(info.fpsList[1] ?? info.fpsList[0]);
         if (info.latexMissing.length > 0 && !info.latexWarnedBefore) {
@@ -134,6 +136,11 @@ export default function App() {
     setShowCloseDialog(false);
   }
 
+  async function handleBrowseOutput() {
+    const chosen = await getApi().browse_output_dir();
+    if (chosen) setOutputDir(chosen);
+  }
+
   async function handleLatexDismiss(dontShowAgain: boolean) {
     if (dontShowAgain) await getApi().dismiss_latex_warning();
     setLatexDialog(null);
@@ -182,9 +189,11 @@ export default function App() {
         quality={quality}
         fps={fps}
         opengl={opengl}
+        outputDir={outputDir}
         onQualityChange={setQuality}
         onFpsChange={setFps}
         onOpenglChange={setOpengl}
+        onBrowseOutput={handleBrowseOutput}
         onRender={handleRender}
         onStop={handleStop}
         onLatexNotice={handleLatexNotice}
