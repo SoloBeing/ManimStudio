@@ -1,4 +1,4 @@
-import sys, os, json, shutil, threading, http.server, socket, platform
+import sys, os, re, json, shutil, threading, http.server, socket, platform
 
 import webview
 
@@ -43,9 +43,28 @@ class Api:
         self._video_path  = ""
         self._render_stem = ""       # temp-file stem of the current/last render
         self._output_dir  = RENDERS_DIR
+        # Directories the HTTP server is allowed to serve; updated when the
+        # output dir changes or the UI dist path is registered via ui_url().
+        self._allowed_dirs = [os.path.abspath(RENDERS_DIR)]
 
         self._http_port = _free_port()
-        handler = lambda *a, **kw: _SilentHandler(*a, directory="/", **kw)
+        _allowed = self._allowed_dirs  # closure reference — stays live as list mutates
+
+        class _RestrictedHandler(_SilentHandler):
+            def _is_allowed(self) -> bool:
+                fs = os.path.abspath(self.translate_path(self.path))
+                return any(
+                    fs == os.path.abspath(d) or fs.startswith(os.path.abspath(d) + os.sep)
+                    for d in _allowed
+                )
+            def do_GET(self):
+                if not self._is_allowed(): self.send_error(403); return
+                super().do_GET()
+            def do_HEAD(self):
+                if not self._is_allowed(): self.send_error(403); return
+                super().do_HEAD()
+
+        handler = lambda *a, **kw: _RestrictedHandler(*a, directory="/", **kw)
         srv = http.server.HTTPServer(("127.0.0.1", self._http_port), handler)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
 
@@ -106,6 +125,13 @@ class Api:
         except Exception as e:
             return {"ok": False, "error": f"Bad params: {e}"}
 
+        if scene_name and not re.match(r'^[A-Za-z_]\w*$', scene_name):
+            return {"ok": False, "error": f"Invalid scene name: {scene_name!r}"}
+
+        fps_val = fps.split()[0] if fps.split() else ""
+        if fps_val not in set(_FPS_LIST):
+            return {"ok": False, "error": f"Invalid fps: {fps_val!r}"}
+
         if mode == "playground":
             source = params.get("source", "")
             if not source.strip():
@@ -123,7 +149,7 @@ class Api:
                 return {"ok": False, "error": f"Build error: {e}"}
 
         flags = list(QUALITY.get(quality, QUALITY["Med  720p"]))
-        flags += ["--fps", fps.split()[0]]
+        flags += ["--fps", fps_val]
         if opengl:
             flags += ["--renderer", "opengl", "--write_to_movie"]
 
@@ -176,6 +202,12 @@ class Api:
             return ""
         result = self._window.create_file_dialog(webview.FileDialog.FOLDER)
         if result and len(result):
+            new_dir = os.path.abspath(result[0])
+            old_dir = os.path.abspath(self._output_dir)
+            if old_dir in self._allowed_dirs:
+                self._allowed_dirs.remove(old_dir)
+            if new_dir not in self._allowed_dirs:
+                self._allowed_dirs.append(new_dir)
             self._output_dir = result[0]
             return result[0]
         return ""
@@ -294,6 +326,9 @@ class Api:
         return f"http://127.0.0.1:{self._http_port}{os.path.abspath(path)}"
 
     def ui_url(self, dist_index: str) -> str:
+        dist_dir = os.path.abspath(os.path.dirname(dist_index))
+        if dist_dir not in self._allowed_dirs:
+            self._allowed_dirs.append(dist_dir)
         return f"http://127.0.0.1:{self._http_port}{os.path.abspath(dist_index)}"
 
     def _push(self, state: dict):
