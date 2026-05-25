@@ -171,7 +171,7 @@ class Api:
     def browse_output_dir(self) -> str:
         if not self._window:
             return ""
-        result = self._window.create_file_dialog(webview.FOLDER_DIALOG)
+        result = self._window.create_file_dialog(webview.FileDialog.FOLDER)
         if result and len(result):
             self._output_dir = result[0]
             return result[0]
@@ -187,7 +187,7 @@ class Api:
         ext  = os.path.splitext(path)[1].lower()
         name = os.path.basename(path)
         result = self._window.create_file_dialog(
-            webview.SAVE_DIALOG,
+            webview.FileDialog.SAVE,
             save_filename=name,
             file_types=(f"Video (*{ext})",),
         )
