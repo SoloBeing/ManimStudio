@@ -224,10 +224,12 @@ class Api:
     # ------------------------------------------------------------------
     def cleanup(self):
         with self._lock:
-            t = self._thread
+            t    = self._thread
+            stem = self._render_stem
         if t and t.is_alive():
             t.stop()
             t.join(timeout=5)
+        self._cleanup_render_artifacts(stem)
 
     # ------------------------------------------------------------------
     # Internal
