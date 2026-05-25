@@ -226,6 +226,9 @@ class Api:
         with self._lock:
             t    = self._thread
             stem = self._render_stem
+        # During a render _render_stem is "", so fall back to the thread's stem
+        if not stem and t is not None:
+            stem = t.render_stem or ""
         if t and t.is_alive():
             t.stop()
             t.join(timeout=5)
