@@ -2,7 +2,7 @@ import sys, os, json, shutil, threading, http.server, socket, platform
 
 import webview
 
-from renderer import QUALITY, RENDERS_DIR, RenderThread
+from renderer import QUALITY, RENDERS_DIR, RenderThread, validate_playground_source
 import builders
 
 _FPS_LIST = ["60", "30", "24", "15"]
@@ -110,6 +110,9 @@ class Api:
             source = params.get("source", "")
             if not source.strip():
                 return {"ok": False, "error": "No source code provided"}
+            err = validate_playground_source(source)
+            if err:
+                return {"ok": False, "error": f"[BLOCKED] {err}"}
         else:
             builder = _BUILDERS.get(mode)
             if not builder:

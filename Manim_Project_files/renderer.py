@@ -13,6 +13,62 @@ try:
 except OSError:
     RENDERS_DIR = tempfile.gettempdir()
 
+# ---------------------------------------------------------------------------
+# Playground source validator
+# ---------------------------------------------------------------------------
+
+# Modules that grant file-system, network, process, or code-execution access.
+_BLOCKED_IMPORT_ROOTS = frozenset({
+    "os", "sys", "subprocess", "socket", "shutil", "pathlib",
+    "glob", "tempfile", "builtins", "importlib", "ctypes",
+    "pickle", "shelve", "multiprocessing", "threading",
+    "concurrent", "asyncio", "http", "urllib", "requests",
+    "ftplib", "smtplib", "telnetlib", "xmlrpc",
+    "io", "zipfile", "tarfile", "gzip", "bz2", "lzma", "mmap",
+    "pty", "tty", "fcntl", "resource", "signal",
+    "sysconfig", "site", "runpy", "inspect", "dis", "gc",
+    "dbm", "sqlite3",
+})
+
+_BLOCKED_CALLS = frozenset({
+    "exec", "eval", "compile", "__import__", "open", "input", "breakpoint",
+})
+
+_BLOCKED_ATTRS = frozenset({
+    "__builtins__", "__globals__", "__subclasses__", "__code__", "__import__",
+})
+
+
+def validate_playground_source(source: str) -> "str | None":
+    """Return an error string if the source uses disallowed constructs, else None."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as e:
+        return f"Syntax error line {e.lineno}: {e.msg}"
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                root = alias.name.split(".")[0]
+                if root in _BLOCKED_IMPORT_ROOTS:
+                    return f"Import not allowed: {alias.name}"
+
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                root = node.module.split(".")[0]
+                if root in _BLOCKED_IMPORT_ROOTS:
+                    return f"Import not allowed: from {node.module}"
+
+        elif isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id in _BLOCKED_CALLS:
+                return f"Call not allowed: {node.func.id}()"
+
+        elif isinstance(node, ast.Attribute):
+            if node.attr in _BLOCKED_ATTRS:
+                return f"Attribute access not allowed: .{node.attr}"
+
+    return None
+
 
 def _base_name(base: ast.expr) -> str:
     if isinstance(base, ast.Name):      return base.id
