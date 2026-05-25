@@ -5,7 +5,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$ROOT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
 
-python3 -m PyInstaller \
+# Build React UI before packaging
+echo "Building React UI..."
+cd ui && npm run build
+cd "$ROOT_DIR"
+
+echo "Running PyInstaller..."
+uv run python -m PyInstaller \
   --clean \
   --noconfirm \
   --distpath "$PROJECT_DIR/dist" \
