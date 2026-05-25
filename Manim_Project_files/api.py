@@ -1,4 +1,4 @@
-import sys, os, json, shutil, threading, http.server, socket
+import sys, os, json, shutil, threading, http.server, socket, platform
 
 import webview
 
@@ -6,6 +6,8 @@ from renderer import QUALITY, RENDERS_DIR, RenderThread
 import builders
 
 _FPS_LIST = ["60", "30", "24", "15"]
+
+_LATEX_WARNED_FLAG = os.path.join(os.path.expanduser("~"), "ManimStudio", "latex_warned")
 
 _BUILDERS = {
     "trig":        builders.build_trig_source,
@@ -59,20 +61,38 @@ class Api:
     # ------------------------------------------------------------------
 
     def get_system_info(self) -> dict:
-        latex_ok = bool(shutil.which("latex") or shutil.which("pdflatex"))
+        missing = [t for t in ("latex", "dvisvgm") if not shutil.which(t)]
+        sys_name = platform.system()
+        if sys_name == "Windows":
+            install_cmd = "winget install TinyTeX-org.TinyTeX"
+        elif sys_name == "Darwin":
+            install_cmd = 'curl -sL "https://yihui.org/tinytex/install-bin-unix.sh" | sh'
+        else:
+            install_cmd = 'wget -qO- "https://yihui.org/tinytex/install-bin-unix.sh" | sh'
         try:
             import glfw
             opengl_ok = True
         except ImportError:
             opengl_ok = False
         return {
-            "latexOk":   latex_ok,
-            "openglOk":  opengl_ok,
-            "outputDir": self._output_dir,
-            "qualities": list(QUALITY.keys()),
-            "fpsList":   _FPS_LIST,
-            "httpPort":  self._http_port,
+            "latexOk":           len(missing) == 0,
+            "latexMissing":      missing,
+            "latexInstallCmd":   install_cmd,
+            "latexWarnedBefore": os.path.exists(_LATEX_WARNED_FLAG),
+            "openglOk":          opengl_ok,
+            "outputDir":         self._output_dir,
+            "qualities":         list(QUALITY.keys()),
+            "fpsList":           _FPS_LIST,
+            "httpPort":          self._http_port,
         }
+
+    def dismiss_latex_warning(self) -> dict:
+        try:
+            os.makedirs(os.path.dirname(_LATEX_WARNED_FLAG), exist_ok=True)
+            open(_LATEX_WARNED_FLAG, "w").close()
+            return {"ok": True}
+        except OSError as e:
+            return {"ok": False, "error": str(e)}
 
     def render(self, mode: str, params_json: str, scene_name: str = "",
                quality: str = "Med  720p", fps: str = "30",

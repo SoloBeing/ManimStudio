@@ -3,6 +3,9 @@ export type RenderStatus = 'idle' | 'rendering' | 'done' | 'error' | 'stopped';
 
 export interface SystemInfo {
   latexOk: boolean;
+  latexMissing: string[];
+  latexInstallCmd: string;
+  latexWarnedBefore: boolean;
   openglOk: boolean;
   outputDir: string;
   qualities: string[];
@@ -68,6 +71,7 @@ export interface PyWebViewApi {
   save_render: () => Promise<{ ok: boolean; path?: string; error?: string }>;
   discard_render: () => Promise<{ ok: boolean }>;
   confirm_close: () => Promise<{ ok: boolean }>;
+  dismiss_latex_warning: () => Promise<{ ok: boolean; error?: string }>;
 }
 
 declare global {

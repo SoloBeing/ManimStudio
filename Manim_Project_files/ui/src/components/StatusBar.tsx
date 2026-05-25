@@ -11,6 +11,7 @@ interface StatusBarProps {
   onOpenglChange: (v: boolean) => void;
   onRender: () => void;
   onStop: () => void;
+  onLatexNotice: () => void;
 }
 
 const STATUS_TEXT: Record<RenderStatus, string> = {
@@ -31,7 +32,7 @@ const STATUS_CLASS: Record<RenderStatus, string> = {
 
 export function StatusBar({
   status, systemInfo, quality, fps, opengl,
-  onQualityChange, onFpsChange, onOpenglChange, onRender, onStop,
+  onQualityChange, onFpsChange, onOpenglChange, onRender, onStop, onLatexNotice,
 }: StatusBarProps) {
   const isRendering = status === 'rendering';
   const qualities = systemInfo?.qualities ?? ['Med  720p'];
@@ -62,6 +63,24 @@ export function StatusBar({
             onChange={e => onOpenglChange(e.target.checked)} />
           OpenGL
         </label>
+      )}
+
+      {systemInfo && !systemInfo.latexOk && (
+        <button
+          onClick={onLatexNotice}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--yellow)',
+            fontSize: 11,
+            cursor: 'pointer',
+            padding: '0 6px',
+            opacity: 0.85,
+          }}
+          title={`LaTeX not found: ${systemInfo.latexMissing.join(', ')} — click for install instructions`}
+        >
+          ⚠ LaTeX
+        </button>
       )}
 
       <div className="status-bar__sep" />

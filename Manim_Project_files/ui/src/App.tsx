@@ -5,7 +5,8 @@ import { Sidebar }     from './components/Sidebar';
 import { MainArea }    from './components/MainArea';
 import { BottomPanel } from './components/BottomPanel';
 import { StatusBar }   from './components/StatusBar';
-import { CloseDialog } from './components/CloseDialog';
+import { CloseDialog }  from './components/CloseDialog';
+import { LaTeXDialog }  from './components/LaTeXDialog';
 import './App.css';
 
 function getApi() {
@@ -13,7 +14,8 @@ function getApi() {
   // dev stub — used when running in a plain browser without PyWebView
   return {
     get_system_info: async () => ({
-      latexOk: true, openglOk: true,
+      latexOk: true, latexMissing: [], latexInstallCmd: '', latexWarnedBefore: false,
+      openglOk: true,
       outputDir: '~/ManimStudio/renders',
       qualities: ['Low  480p', 'Med  720p', 'High 1080p', 'GIF'],
       fpsList: ['60', '30', '24', '15'],
@@ -26,6 +28,7 @@ function getApi() {
     save_render: async (): Promise<{ ok: boolean; path?: string; error?: string }> => ({ ok: true }),
     discard_render: async () => ({ ok: true }),
     confirm_close: async () => ({ ok: true }),
+    dismiss_latex_warning: async () => ({ ok: true }),
   };
 }
 
@@ -39,6 +42,7 @@ export default function App() {
   const [fps, setFps]                 = useState('30');
   const [opengl, setOpengl]           = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const [latexDialog, setLatexDialog] = useState<{ missing: string[]; installCmd: string; withDontShow: boolean } | null>(null);
 
   const panelRef = useRef<PanelHandle>(null);
 
@@ -57,6 +61,9 @@ export default function App() {
         setSystemInfo(info);
         setQuality(info.qualities[1] ?? info.qualities[0]);
         setFps(info.fpsList[1] ?? info.fpsList[0]);
+        if (info.latexMissing.length > 0 && !info.latexWarnedBefore) {
+          setLatexDialog({ missing: info.latexMissing, installCmd: info.latexInstallCmd, withDontShow: true });
+        }
       });
     }
 
@@ -127,6 +134,18 @@ export default function App() {
     setShowCloseDialog(false);
   }
 
+  async function handleLatexDismiss(dontShowAgain: boolean) {
+    if (dontShowAgain) await getApi().dismiss_latex_warning();
+    setLatexDialog(null);
+  }
+
+  function handleLatexNotice() {
+    const info = systemInfo;
+    if (info && info.latexMissing.length > 0) {
+      setLatexDialog({ missing: info.latexMissing, installCmd: info.latexInstallCmd, withDontShow: false });
+    }
+  }
+
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       {showCloseDialog && (
@@ -134,6 +153,14 @@ export default function App() {
           onSave={handleCloseSave}
           onDiscard={handleCloseDiscard}
           onCancel={handleCloseCancel}
+        />
+      )}
+      {latexDialog && (
+        <LaTeXDialog
+          missing={latexDialog.missing}
+          installCmd={latexDialog.installCmd}
+          withDontShow={latexDialog.withDontShow}
+          onDismiss={handleLatexDismiss}
         />
       )}
       <div className="app-body">
@@ -160,6 +187,7 @@ export default function App() {
         onOpenglChange={setOpengl}
         onRender={handleRender}
         onStop={handleStop}
+        onLatexNotice={handleLatexNotice}
       />
     </div>
   );
