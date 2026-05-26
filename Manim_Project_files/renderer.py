@@ -53,10 +53,15 @@ _BLOCKED_IMPORT_ROOTS = frozenset({
     "dns",
     # Python git libraries — can commit, clone, push without subprocess
     "git", "dulwich", "pygit2",
+    # image/audio I/O with write capability
+    "imageio",
 })
 
 _BLOCKED_CALLS = frozenset({
     "exec", "eval", "compile", "__import__", "open", "input", "breakpoint",
+    # introspection builtins — getattr(obj, '__builtins__') bypasses _BLOCKED_ATTRS
+    # because the attr name is a string argument, not dot-syntax in the AST
+    "getattr", "setattr", "delattr", "vars", "globals", "locals",
 })
 
 _BLOCKED_ATTRS = frozenset({
@@ -68,6 +73,12 @@ _BLOCKED_ATTRS = frozenset({
     # pandas file-write methods
     "to_csv", "to_json", "to_excel", "to_parquet",
     "to_pickle", "to_sql", "to_hdf", "to_feather",
+    # skimage / imageio write methods
+    "imsave", "imwrite",
+    # numpy memory-mapped file (mode='w+' creates/overwrites files)
+    "memmap",
+    # Manim interactive mode — hangs subprocess waiting for IPython input
+    "interactive_embed",
 })
 
 
