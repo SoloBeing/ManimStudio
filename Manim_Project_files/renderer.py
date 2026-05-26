@@ -147,7 +147,8 @@ class RenderThread(threading.Thread):
             )
             for line in self._proc.stdout:
                 stripped = line.rstrip()
-                self.on_log(stripped)
+                if "format set as webm" not in stripped and "format changed to '.webm'" not in stripped:
+                    self.on_log(stripped)
                 full_output.append(stripped)
             self._proc.wait()
         finally:
