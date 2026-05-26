@@ -9,16 +9,27 @@ const FIELDS = [
   ['Saddle', 'saddle'], ['Wave', 'wave'],
 ];
 
+const COLOR_SCHEMES = [
+  ['Default (Blue→Red)', 'default'],
+  ['Hot (Red→White)',    'hot'],
+  ['Cool (Blue→White)',  'cool'],
+  ['Mono (Blue tones)',  'mono'],
+  ['Rainbow',            'rainbow'],
+  ['Green→Gold',         'green_gold'],
+];
+
 export function StreamLinesPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
-  const [mode, setMode] = useState('vortex');
-  const [scale, setScale] = useState(4.0);
-  const [spacing, setSpacing] = useState(0.5);
-  const [flowSpeed, setFlowSpeed] = useState(1.4);
+  const [mode, setMode]             = useState('vortex');
+  const [scale, setScale]           = useState(4.0);
+  const [spacing, setSpacing]       = useState(0.5);
+  const [flowSpeed, setFlowSpeed]   = useState(1.4);
   const [virtualTime, setVirtualTime] = useState(4.0);
   const [strokeWidth, setStrokeWidth] = useState(1.6);
-  const [showAxes, setShowAxes] = useState(true);
-  const [animate, setAnimate] = useState(true);
-  const [text, setText] = useState<TextParams>({ ...DEFAULT_TEXT, text_position: 'top_left', text_color: 'teal' });
+  const [showAxes, setShowAxes]     = useState(true);
+  const [animate, setAnimate]       = useState(true);
+  const [colorScheme, setColorScheme] = useState('default');
+  const [camZoom, setCamZoom]       = useState(1.0);
+  const [text, setText]             = useState<TextParams>({ ...DEFAULT_TEXT, text_position: 'top_left', text_color: 'teal' });
 
   useImperativeHandle(ref, () => ({
     getParams: () => ({
@@ -27,6 +38,7 @@ export function StreamLinesPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
         mode, scale, spacing, flow_speed: flowSpeed,
         virtual_time: virtualTime, stroke_width_sl: strokeWidth,
         show_axes: showAxes, animate,
+        color_scheme: colorScheme, cam_zoom: camZoom,
         ...text,
       },
     }),
@@ -48,11 +60,21 @@ export function StreamLinesPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
       <Knob label="Line Width"   min={0.5} max={5.0} value={strokeWidth} onChange={setStrokeWidth} decimals={1} step={0.1} />
 
       <div className="sec-sep" />
+      <div className="sec-hdr">Colors</div>
+      <select className="app-select" value={colorScheme} onChange={e => setColorScheme(e.target.value)}>
+        {COLOR_SCHEMES.map(([l, v]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+
+      <div className="sec-sep" />
       <div className="sec-hdr">Display</div>
       <div className="check-row">
         <label className="app-check"><input type="checkbox" checked={showAxes}  onChange={e => setShowAxes(e.target.checked)} /> Grid</label>
         <label className="app-check"><input type="checkbox" checked={animate}   onChange={e => setAnimate(e.target.checked)}  /> Animate Flow</label>
       </div>
+
+      <div className="sec-sep" />
+      <div className="sec-hdr">Camera</div>
+      <Knob label="Zoom" min={0.5} max={3.0} value={camZoom} onChange={setCamZoom} decimals={2} step={0.1} />
 
       <TextControls value={text} onChange={setText} />
     </>

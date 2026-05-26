@@ -1,4 +1,5 @@
-export type Mode = 'trig' | 'complex' | 'linear' | 'code' | 'streamlines' | 'playground';
+export type Mode = 'trig' | 'complex' | 'linear' | 'code' | 'streamlines' | 'playground'
+                 | 'geometry' | 'barchart' | 'surface3d' | 'numberline';
 export type RenderStatus = 'idle' | 'rendering' | 'done' | 'error' | 'stopped';
 
 export interface SystemInfo {

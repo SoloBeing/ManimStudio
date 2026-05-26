@@ -16,6 +16,10 @@ _BUILDERS = {
     "nonlinear":   builders.build_nonlinear_source,
     "code":        builders.build_code_source,
     "streamlines": builders.build_streamlines_source,
+    "geometry":    builders.build_geometry_source,
+    "barchart":    builders.build_barchart_source,
+    "surface3d":   builders.build_surface3d_source,
+    "numberline":  builders.build_numberline_source,
 }
 
 

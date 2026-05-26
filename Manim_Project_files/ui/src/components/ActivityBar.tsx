@@ -11,6 +11,10 @@ const ITEMS: Array<{ mode: Mode; icon: string; label: string }> = [
   { mode: 'linear',      icon: 'Mx',  label: 'LinAlg' },
   { mode: 'code',        icon: '</>',  label: 'Code' },
   { mode: 'streamlines', icon: '≋',   label: 'Flow' },
+  { mode: 'geometry',    icon: '⬡',   label: 'Geo' },
+  { mode: 'barchart',    icon: '▦',   label: 'Chart' },
+  { mode: 'surface3d',   icon: '⬙',   label: '3D' },
+  { mode: 'numberline',  icon: '⟺',   label: 'NLine' },
   { mode: 'playground',  icon: '▶',   label: 'Play' },
 ];
 

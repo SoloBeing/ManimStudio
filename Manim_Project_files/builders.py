@@ -133,6 +133,8 @@ def _place_custom_lbl(L, text_content, font, fs, txt_col, bold, italic,
 
 def build_trig_source(
     show_sin, show_cos, show_tan, A, w, ph, D, xr, show_grid, anim,
+    sin_color="blue", cos_color="red", tan_color="green",
+    yr=4.5, cam_zoom=1.0,
     text_position="top_right", text_color="white", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
     bold=False, italic=False, stroke_width=0, stroke_color="white",
@@ -143,16 +145,22 @@ def build_trig_source(
     stroke_col = _text_color(stroke_color)
     font = text_font or "Arial"
     fs   = max(8, int(text_font_size))
+    yr_f = max(0.5, float(yr or 4.5))
 
-    L = [
-        "from manim import *",
-        "import numpy as np",
-        "",
+    L = ["from manim import *", "import numpy as np", ""]
+    zoom_f = float(cam_zoom or 1.0)
+    if abs(zoom_f - 1.0) > 0.02:
+        L += [
+            f"config.frame_width  = {14.222 / zoom_f:.3f}",
+            f"config.frame_height = {8.0    / zoom_f:.3f}",
+            "",
+        ]
+    L += [
         "class ManimScene(Scene):",
         "    def construct(self):",
         "        axes = Axes(",
         f"            x_range=[{-xr:.2f}, {xr:.2f}, {xr/4:.2f}],",
-        "            y_range=[-4.5, 4.5, 1.0],",
+        f"            y_range=[{-yr_f:.2f}, {yr_f:.2f}, 1.0],",
         "            x_length=11, y_length=6,",
         "            axis_config=dict(color=GREY, include_tip=True),",
         "        )",
@@ -177,13 +185,17 @@ def build_trig_source(
                           stroke_width, stroke_col, pos_call, gradient, x_offset, y_offset)
         L.append("        self.play(FadeIn(custom_lbl), run_time=0.4)")
 
+    c_sin = _text_color(sin_color or "blue")
+    c_cos = _text_color(cos_color or "red")
+    c_tan = _text_color(tan_color or "green")
+
     graphs = []
     if show_sin:
-        graphs.append((f"{A:.4f}*np.sin({w:.4f}*x + {ph:.4f}) + {D:.4f}", "BLUE",  "sin"))
+        graphs.append((f"{A:.4f}*np.sin({w:.4f}*x + {ph:.4f}) + {D:.4f}", c_sin, "sin"))
     if show_cos:
-        graphs.append((f"{A:.4f}*np.cos({w:.4f}*x + {ph:.4f}) + {D:.4f}", "RED",   "cos"))
+        graphs.append((f"{A:.4f}*np.cos({w:.4f}*x + {ph:.4f}) + {D:.4f}", c_cos, "cos"))
     if show_tan:
-        graphs.append((f"{A:.4f}*np.tan({w:.4f}*x + {ph:.4f}) + {D:.4f}", "GREEN", "tan"))
+        graphs.append((f"{A:.4f}*np.tan({w:.4f}*x + {ph:.4f}) + {D:.4f}", c_tan, "tan"))
 
     tkw = _text_kwargs(font, fs, txt_col, bold, italic, stroke_width, stroke_col)
     for i, (expr, color, name) in enumerate(graphs):
@@ -205,21 +217,27 @@ def build_trig_source(
                     L.append(_place_label(lv, pos_call, x_offset, y_offset))
             else:
                 L.append(f"        {lv}.next_to(lbl{i - 1}, {stack_dir}, buff=0.12)")
-        if anim == "Create":
-            if show_preset_labels:
-                L.append(f"        self.play(Create({g}), FadeIn({lv}), run_time=1.5)")
-            else:
-                L.append(f"        self.play(Create({g}), run_time=1.5)")
-        elif anim == "FadeIn":
-            if show_preset_labels:
-                L.append(f"        self.play(FadeIn({g}), FadeIn({lv}), run_time=1.2)")
-            else:
-                L.append(f"        self.play(FadeIn({g}), run_time=1.2)")
+        anim_s = str(anim or "Create")
+        if anim_s == "FadeIn":
+            graph_anim = f"FadeIn({g})"
+            rt = 1.2
+        elif anim_s == "Write":
+            graph_anim = f"Create({g})"
+            rt = 2.0
+        elif anim_s == "GrowFromEdge":
+            graph_anim = f"GrowFromEdge({g}, LEFT)"
+            rt = 1.8
+        elif anim_s == "DrawBorderThenFill":
+            graph_anim = f"Create({g})"
+            rt = 1.8
+        else:  # Create (default)
+            graph_anim = f"Create({g})"
+            rt = 1.5
+        if show_preset_labels:
+            lbl_anim = "Write" if anim_s == "Write" else "FadeIn"
+            L.append(f"        self.play({graph_anim}, {lbl_anim}({lv}), run_time={rt:.1f})")
         else:
-            if show_preset_labels:
-                L.append(f"        self.play(Create({g}), Write({lv}), run_time=2.0)")
-            else:
-                L.append(f"        self.play(Create({g}), run_time=2.0)")
+            L.append(f"        self.play({graph_anim}, run_time={rt:.1f})")
 
     L.append("        self.wait(1.5)")
     return _join(L)
@@ -702,8 +720,19 @@ def build_code_source(
 # StreamLines
 # ===========================================================================
 
+_SL_COLOR_SCHEMES = {
+    "default":    "BLUE, TEAL, GREEN, YELLOW, RED",
+    "hot":        "RED, ORANGE, YELLOW, WHITE",
+    "cool":       "BLUE, TEAL, TEAL_B, WHITE",
+    "mono":       "BLUE_E, BLUE_C, BLUE_A, WHITE",
+    "rainbow":    "RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE",
+    "green_gold": "GREEN_E, GREEN, YELLOW_GREEN, GOLD, YELLOW",
+}
+
+
 def build_streamlines_source(
     mode, scale, spacing, flow_speed, virtual_time, stroke_width_sl, show_axes, animate,
+    color_scheme="default", cam_zoom=1.0,
     text_position="top_left", text_color="teal", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
     bold=False, italic=False, stroke_width=0, stroke_color="white",
@@ -716,6 +745,8 @@ def build_streamlines_source(
     font   = text_font or "Arial"
     fs     = max(8, int(text_font_size))
     fs_sub = max(8, fs - 8)
+    sl_colors = _SL_COLOR_SCHEMES.get(str(color_scheme or "default").strip().lower(),
+                                      _SL_COLOR_SCHEMES["default"])
 
     field_map = {
         "vortex": (
@@ -750,10 +781,15 @@ def build_streamlines_source(
     tkw     = _text_kwargs(font, fs,     txt_col, bold, italic, stroke_width, stroke_col)
     tkw_sub = _text_kwargs(font, fs_sub, txt_col, bold, italic, stroke_width, stroke_col)
 
-    L = [
-        "from manim import *",
-        "import numpy as np",
-        "",
+    L = ["from manim import *", "import numpy as np", ""]
+    zoom_f = float(cam_zoom or 1.0)
+    if abs(zoom_f - 1.0) > 0.02:
+        L += [
+            f"config.frame_width  = {14.222 / zoom_f:.3f}",
+            f"config.frame_height = {8.0    / zoom_f:.3f}",
+            "",
+        ]
+    L += [
         "class ManimScene(Scene):",
         "    def construct(self):",
     ]
@@ -801,7 +837,7 @@ def build_streamlines_source(
         "            field,",
         f"            x_range=[{-scale:.2f}, {scale:.2f}, {step:.2f}],",
         f"            y_range=[{-scale:.2f}, {scale:.2f}, {step:.2f}],",
-        "            colors=[BLUE, TEAL, GREEN, YELLOW, RED],",
+        f"            colors=[{sl_colors}],",
         "            min_color_scheme_value=0,",
         f"            max_color_scheme_value={max(1.0, scale):.2f},",
         "            color_scheme=lambda p: np.linalg.norm(field(p)),",
@@ -828,4 +864,419 @@ def build_streamlines_source(
         L.append("        self.play(stream_lines.create(), run_time=2.5)")
 
     L.append("        self.wait(1.5)")
+    return _join(L)
+
+
+# ===========================================================================
+# Geometry
+# ===========================================================================
+
+_SHAPE_ANIMS = {
+    "Create":            ("Create(obj)", 1.5),
+    "DrawBorderThenFill":("DrawBorderThenFill(obj)", 2.0),
+    "FadeIn":            ("FadeIn(obj)", 1.2),
+    "GrowFromCenter":    ("GrowFromCenter(obj)", 1.5),
+    "SpinInFromNothing": ("SpinInFromNothing(obj)", 1.8),
+    "FadeInFromLarge":   ("FadeInFromLarge(obj)", 1.5),
+    "Write":             ("Write(obj)", 2.0),
+}
+
+
+def build_geometry_source(
+    shape, size, shape_fill_color, shape_stroke_color, fill_opacity,
+    shape_stroke_width, anim, cam_zoom=1.0,
+    text_position="top_left", text_color="white", text_font="Arial",
+    text_content="", text_font_size=22, show_preset_labels=True,
+    bold=False, italic=False, stroke_width=0, stroke_color="white",
+    x_offset=0, y_offset=0, gradient="none",
+):
+    pos_call, _, stack_dir = _text_position(text_position)
+    txt_col    = _text_color(text_color)
+    stroke_col = _text_color(stroke_color)
+    fill_col   = _text_color(shape_fill_color or "blue")
+    str_col    = _text_color(shape_stroke_color or "white")
+    font = text_font or "Arial"
+    fs   = max(8, int(text_font_size))
+
+    s    = max(0.3, float(size or 1.5))
+    fop  = max(0.0, min(1.0, float(fill_opacity if fill_opacity is not None else 0.6)))
+    gsw  = max(0.0, float(shape_stroke_width or 3.0))
+    shape_lower = str(shape or "circle").strip().lower()
+
+    base_kw = (
+        f"fill_color={fill_col}, fill_opacity={fop:.2f}, "
+        f"stroke_color={str_col}, stroke_width={gsw:.1f}"
+    )
+
+    shape_code = {
+        "circle":      f"        obj = Circle(radius={s:.2f}, {base_kw})",
+        "square":      f"        obj = Square(side_length={s*2:.2f}, {base_kw})",
+        "rectangle":   f"        obj = Rectangle(width={s*1.6:.2f}, height={s:.2f}, {base_kw})",
+        "triangle":    f"        obj = Triangle({base_kw}).scale({s:.2f})",
+        "pentagon":    f"        obj = RegularPolygon(n=5, {base_kw}).scale({s:.2f})",
+        "hexagon":     f"        obj = RegularPolygon(n=6, {base_kw}).scale({s:.2f})",
+        "star":        f"        obj = Star(n=5, outer_radius={s:.2f}, inner_radius={s*0.45:.2f}, {base_kw})",
+        "arrow":       f"        obj = Arrow(start=LEFT*{s:.2f}, end=RIGHT*{s:.2f}, color={str_col}, stroke_width={gsw:.1f})",
+        "doublearrow": f"        obj = DoubleArrow(start=LEFT*{s:.2f}, end=RIGHT*{s:.2f}, color={str_col}, stroke_width={gsw:.1f})",
+        "annulus":     f"        obj = Annulus(inner_radius={s*0.35:.2f}, outer_radius={s:.2f}, {base_kw})",
+    }.get(shape_lower, f"        obj = Circle(radius={s:.2f}, {base_kw})")
+
+    anim_call, anim_rt = _SHAPE_ANIMS.get(str(anim or "Create"), ("Create(obj)", 1.5))
+    if shape_lower in ("arrow", "doublearrow") and str(anim or "") in ("Create", "GrowFromCenter", "Write"):
+        anim_call, anim_rt = "GrowArrow(obj)", 1.2
+
+    L = ["from manim import *", ""]
+    zoom_f = float(cam_zoom or 1.0)
+    if abs(zoom_f - 1.0) > 0.02:
+        L += [
+            f"config.frame_width  = {14.222 / zoom_f:.3f}",
+            f"config.frame_height = {8.0    / zoom_f:.3f}",
+            "",
+        ]
+    L += [
+        "class ManimScene(Scene):",
+        "    def construct(self):",
+        shape_code,
+    ]
+
+    if text_content:
+        _place_custom_lbl(L, text_content, font, fs, txt_col, bold, italic,
+                          stroke_width, stroke_col, pos_call, gradient, x_offset, y_offset)
+
+    if show_preset_labels:
+        name_map = {"doublearrow": "Double Arrow"}
+        disp = name_map.get(shape_lower, shape_lower.replace("_", " ").title())
+        L.append(_text_line("lbl", disp, font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
+        if text_content:
+            L.append(f"        lbl.next_to(custom_lbl, {stack_dir}, buff=0.12)")
+        else:
+            L.append(_place_label("lbl", pos_call, x_offset, y_offset))
+
+    parts = [anim_call]
+    if text_content:       parts.append("FadeIn(custom_lbl)")
+    if show_preset_labels: parts.append("FadeIn(lbl)")
+    L.append(f"        self.play({', '.join(parts)}, run_time={anim_rt:.1f})")
+    L.append("        self.wait(1.5)")
+    return _join(L)
+
+
+# ===========================================================================
+# Bar Chart
+# ===========================================================================
+
+def build_barchart_source(
+    bar_labels, bar_values, bar_colors,
+    auto_y=True, y_min=0, y_max=30, y_step=5,
+    animate=True, show_labels=True,
+    text_position="top_left", text_color="white", text_font="Arial",
+    text_content="", text_font_size=22, show_preset_labels=True,
+    bold=False, italic=False, stroke_width=0, stroke_color="white",
+    x_offset=0, y_offset=0, gradient="none",
+):
+    pos_call, _, stack_dir = _text_position(text_position)
+    txt_col    = _text_color(text_color)
+    stroke_col = _text_color(stroke_color)
+    font = text_font or "Arial"
+    fs   = max(8, int(text_font_size))
+
+    labels = [str(l)[:24] for l in (bar_labels or ["A", "B", "C"])][:5]
+    values = [float(v) for v in (bar_values or [10, 20, 15])][:5]
+    n = min(len(labels), len(values))
+    labels, values = labels[:n], values[:n]
+
+    raw_colors = list(bar_colors or [])[:5]
+    manim_colors = [_text_color(c) for c in raw_colors]
+    defaults = ["BLUE", "RED", "GREEN", "YELLOW", "PURPLE"]
+    while len(manim_colors) < n:
+        manim_colors.append(defaults[len(manim_colors) % 5])
+    manim_colors = manim_colors[:n]
+
+    if auto_y or y_min is None or y_max is None:
+        import math as _math
+        lo = min(min(values, default=0), 0)
+        hi = max(values, default=10) * 1.3 + 2
+        st = max(1.0, (hi - lo) / 6)
+        magnitude = 10 ** _math.floor(_math.log10(max(st, 0.5)))
+        st = _math.ceil(st / magnitude) * magnitude
+        hi = _math.ceil(hi / st) * st
+        lo = _math.floor(lo / st) * st
+    else:
+        lo, hi, st = float(y_min), float(y_max), max(0.1, float(y_step))
+    if lo >= hi:
+        hi = lo + 10
+
+    colors_str = f"[{', '.join(manim_colors)}]"
+
+    L = [
+        "from manim import *",
+        "",
+        "class ManimScene(Scene):",
+        "    def construct(self):",
+        f"        chart = BarChart(",
+        f"            values={values!r},",
+        f"            bar_names={labels!r},",
+        f"            y_range=[{lo:.1f}, {hi:.1f}, {st:.1f}],",
+        f"            bar_colors={colors_str},",
+        "            x_length=8, y_length=5,",
+        "            axis_config=dict(color=GREY_B),",
+        "        )",
+    ]
+
+    if show_labels:
+        L.append("        bar_lbl = chart.get_bar_labels(font_size=20, color=WHITE)")
+
+    if text_content:
+        _place_custom_lbl(L, text_content, font, fs, txt_col, bold, italic,
+                          stroke_width, stroke_col, pos_call, gradient, x_offset, y_offset)
+
+    if show_preset_labels:
+        L.append(_text_line("title", "Bar Chart", font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
+        if text_content:
+            L.append(f"        title.next_to(custom_lbl, {stack_dir}, buff=0.12)")
+        else:
+            L.append(_place_label("title", pos_call, x_offset, y_offset))
+
+    if animate:
+        parts = ["Create(chart)"]
+        if text_content:       parts.append("FadeIn(custom_lbl)")
+        if show_preset_labels: parts.append("FadeIn(title)")
+        L.append(f"        self.play({', '.join(parts)}, run_time=2.0)")
+        if show_labels:
+            L.append("        self.play(FadeIn(bar_lbl), run_time=0.8)")
+    else:
+        add_parts = ["chart"]
+        if text_content:       add_parts.append("custom_lbl")
+        if show_preset_labels: add_parts.append("title")
+        if show_labels:        add_parts.append("bar_lbl")
+        L.append(f"        self.add({', '.join(add_parts)})")
+
+    L.append("        self.wait(2.0)")
+    return _join(L)
+
+
+# ===========================================================================
+# 3D Surface
+# ===========================================================================
+
+_SURFACES = {
+    "sine_wave": {
+        "title":   "Sine Wave Surface",
+        "func":    "np.array([u, v, np.sin(u) * np.cos(v)])",
+        "u_range": [-3.14159, 3.14159],
+        "v_range": [-3.14159, 3.14159],
+    },
+    "paraboloid": {
+        "title":   "Paraboloid",
+        "func":    "np.array([u, v, 0.3*(u**2 + v**2)])",
+        "u_range": [-2.5, 2.5],
+        "v_range": [-2.5, 2.5],
+    },
+    "saddle": {
+        "title":   "Saddle Surface",
+        "func":    "np.array([u, v, 0.3*(u**2 - v**2)])",
+        "u_range": [-2.5, 2.5],
+        "v_range": [-2.5, 2.5],
+    },
+    "torus": {
+        "title":   "Torus",
+        "func":    "np.array([(2 + np.cos(v)) * np.cos(u), (2 + np.cos(v)) * np.sin(u), np.sin(v)])",
+        "u_range": [0, 6.28318],
+        "v_range": [0, 6.28318],
+    },
+    "sphere": {
+        "title":   "Sphere",
+        "func":    "np.array([1.8*np.cos(u)*np.cos(v), 1.8*np.cos(u)*np.sin(v), 1.8*np.sin(u)])",
+        "u_range": [-1.5708, 1.5708],
+        "v_range": [0, 6.28318],
+    },
+    "ripple": {
+        "title":   "Ripple Surface",
+        "func":    "np.array([u, v, np.sin(np.sqrt(u**2 + v**2 + 0.001))])",
+        "u_range": [-3.5, 3.5],
+        "v_range": [-3.5, 3.5],
+    },
+    "mobius": {
+        "title":   "Möbius Strip",
+        "func":    "np.array([(1 + v/2*np.cos(u/2))*np.cos(u), (1 + v/2*np.cos(u/2))*np.sin(u), v/2*np.sin(u/2)])",
+        "u_range": [0, 6.28318],
+        "v_range": [-0.5, 0.5],
+    },
+}
+
+_SURF_COLORS = {
+    "checkerboard_blue":  "[BLUE_D, BLUE_E]",
+    "checkerboard_teal":  "[TEAL_D, TEAL_E]",
+    "checkerboard_green": "[GREEN_D, GREEN_E]",
+    "solid_blue":         "[BLUE, BLUE]",
+    "solid_red":          "[RED_D, RED_E]",
+    "solid_orange":       "[ORANGE, GOLD_D]",
+    "rainbow":            "[RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE]",
+}
+
+
+def build_surface3d_source(
+    surface_type, theta, phi, cam_zoom,
+    show_axes, color_mode, resolution, animate_camera,
+    text_position="top_left", text_color="white", text_font="Arial",
+    text_content="", text_font_size=22, show_preset_labels=True,
+    bold=False, italic=False, stroke_width=0, stroke_color="white",
+    x_offset=0, y_offset=0, gradient="none",
+):
+    pos_call, _, stack_dir = _text_position(text_position)
+    txt_col    = _text_color(text_color)
+    stroke_col = _text_color(stroke_color)
+    font = text_font or "Arial"
+    fs   = max(8, int(text_font_size))
+
+    surf_key = str(surface_type or "sine_wave").strip().lower()
+    surf     = _SURFACES.get(surf_key, _SURFACES["sine_wave"])
+    colors   = _SURF_COLORS.get(str(color_mode or "checkerboard_blue").strip().lower(),
+                                 _SURF_COLORS["checkerboard_blue"])
+    res      = max(4, min(16, int(resolution or 8)))
+    theta_d  = float(theta if theta is not None else 70)
+    phi_d    = float(phi   if phi   is not None else 75)
+    zoom_f   = float(cam_zoom or 1.0)
+
+    ur = surf["u_range"]
+    vr = surf["v_range"]
+
+    L = [
+        "from manim import *",
+        "import numpy as np",
+        "",
+        "class ManimScene(ThreeDScene):",
+        "    def construct(self):",
+    ]
+
+    if show_axes:
+        L += [
+            "        axes = ThreeDAxes(x_range=[-4,4], y_range=[-4,4], z_range=[-3,3],",
+            "                          x_length=8, y_length=8, z_length=5)",
+            "        self.play(Create(axes), run_time=0.8)",
+        ]
+
+    L += [
+        "        surface = Surface(",
+        f"            lambda u, v: {surf['func']},",
+        f"            u_range=[{ur[0]:.5f}, {ur[1]:.5f}],",
+        f"            v_range=[{vr[0]:.5f}, {vr[1]:.5f}],",
+        f"            resolution=({res}, {res}),",
+        f"            checkerboard_colors={colors},",
+        "        )",
+        f"        self.set_camera_orientation(theta={theta_d:.1f}*DEGREES, phi={phi_d:.1f}*DEGREES, zoom={zoom_f:.2f})",
+        "        self.play(Create(surface), run_time=2.5)",
+    ]
+
+    if text_content or show_preset_labels:
+        if text_content:
+            _place_custom_lbl(L, text_content, font, fs, txt_col, bold, italic,
+                              stroke_width, stroke_col, pos_call, gradient, x_offset, y_offset)
+        if show_preset_labels:
+            L.append(_text_line("title", surf["title"], font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
+            if text_content:
+                L.append(f"        title.next_to(custom_lbl, {stack_dir}, buff=0.12)")
+            else:
+                L.append(_place_label("title", pos_call, x_offset, y_offset))
+        fade_parts = []
+        if text_content:       fade_parts.append("FadeIn(custom_lbl)")
+        if show_preset_labels: fade_parts.append("FadeIn(title)")
+        if fade_parts:
+            mob_names = [p.split("FadeIn(")[1].rstrip(")") for p in fade_parts]
+            L.append(f"        self.add_fixed_in_frame_mobjects({', '.join(mob_names)})")
+            L.append(f"        self.play({', '.join(fade_parts)}, run_time=0.6)")
+
+    if animate_camera:
+        L += [
+            "        self.begin_ambient_camera_rotation(rate=0.15)",
+            "        self.wait(5)",
+            "        self.stop_ambient_camera_rotation()",
+        ]
+    else:
+        L.append("        self.wait(2.0)")
+
+    return _join(L)
+
+
+# ===========================================================================
+# Number Line / ValueTracker
+# ===========================================================================
+
+def build_numberline_source(
+    x_min, x_max, tick_step, start_val, target_vals,
+    run_time_per_step, dot_color, show_label,
+    text_position="top_left", text_color="white", text_font="Arial",
+    text_content="", text_font_size=22, show_preset_labels=True,
+    bold=False, italic=False, stroke_width=0, stroke_color="white",
+    x_offset=0, y_offset=0, gradient="none",
+):
+    pos_call, _, stack_dir = _text_position(text_position)
+    txt_col    = _text_color(text_color)
+    stroke_col = _text_color(stroke_color)
+    dot_col    = _text_color(dot_color or "blue")
+    font = text_font or "Arial"
+    fs   = max(8, int(text_font_size))
+
+    x0   = float(x_min       if x_min       is not None else -5)
+    x1   = float(x_max       if x_max       is not None else  5)
+    step = max(0.1, float(tick_step         if tick_step is not None else 1))
+    sv   = float(start_val   if start_val   is not None else 0)
+    rt   = max(0.3, float(run_time_per_step if run_time_per_step is not None else 1.5))
+    if x0 >= x1:
+        x1 = x0 + 10
+
+    targets = []
+    for v in (target_vals or []):
+        try:
+            targets.append(float(v))
+        except (TypeError, ValueError):
+            pass
+    targets = targets[:4]
+
+    L = [
+        "from manim import *",
+        "",
+        "class ManimScene(Scene):",
+        "    def construct(self):",
+        "        nl = NumberLine(",
+        f"            x_range=[{x0:.2f}, {x1:.2f}, {step:.2f}],",
+        "            length=10,",
+        "            include_numbers=True,",
+        "            label_direction=DOWN,",
+        "            font_size=24,",
+        "        )",
+        f"        tracker = ValueTracker({sv:.4f})",
+        f"        dot = always_redraw(lambda: Dot(nl.n2p(tracker.get_value()), color={dot_col}, radius=0.14))",
+    ]
+
+    if show_label:
+        L += [
+            "        val_lbl = always_redraw(",
+            f'            lambda: Text(f"{{tracker.get_value():.2f}}", font_size=22, color={dot_col})',
+            "            .next_to(nl.n2p(tracker.get_value()), UP, buff=0.25)",
+            "        )",
+        ]
+
+    if text_content:
+        _place_custom_lbl(L, text_content, font, fs, txt_col, bold, italic,
+                          stroke_width, stroke_col, pos_call, gradient, x_offset, y_offset)
+
+    if show_preset_labels:
+        L.append(_text_line("title", "Number Line", font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
+        if text_content:
+            L.append(f"        title.next_to(custom_lbl, {stack_dir}, buff=0.12)")
+        else:
+            L.append(_place_label("title", pos_call, x_offset, y_offset))
+
+    L.append("        self.play(Create(nl), run_time=0.8)")
+    fade_parts = ["FadeIn(dot)"]
+    if show_label:         fade_parts.append("FadeIn(val_lbl)")
+    if text_content:       fade_parts.append("FadeIn(custom_lbl)")
+    if show_preset_labels: fade_parts.append("FadeIn(title)")
+    L.append(f"        self.play({', '.join(fade_parts)}, run_time=0.5)")
+
+    for tv in targets:
+        L.append(f"        self.play(tracker.animate.set_value({tv:.4f}), run_time={rt:.2f})")
+        L.append("        self.wait(0.4)")
+
+    L.append("        self.wait(1.0)")
     return _join(L)

@@ -4,6 +4,15 @@ import { TextControls } from '../shared/TextControls';
 import { DEFAULT_TEXT } from '../../types';
 import type { PanelHandle, TextParams } from '../../types';
 
+const CURVE_COLORS = [
+  ['Blue',        'blue'],  ['Red',     'red'],   ['Green',       'green'],
+  ['Yellow',      'yellow'],['Orange',  'orange'],['Teal',        'teal'],
+  ['Purple',      'purple'],['Pink',    'pink'],  ['Gold',        'gold'],
+  ['White',       'white'], ['Lt Blue', 'light_blue'], ['Lt Green', 'light_green'],
+];
+
+const ANIMS = ['Create', 'FadeIn', 'Write', 'GrowFromEdge', 'DrawBorderThenFill'];
+
 export function TrigPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
   const [showSin, setShowSin] = useState(true);
   const [showCos, setShowCos] = useState(true);
@@ -13,8 +22,13 @@ export function TrigPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
   const [ph, setPh] = useState(0.0);
   const [D, setD] = useState(0.0);
   const [xr, setXr] = useState(4.0);
+  const [yr, setYr] = useState(4.5);
   const [showGrid, setShowGrid] = useState(true);
   const [anim, setAnim] = useState('Create');
+  const [sinColor, setSinColor] = useState('blue');
+  const [cosColor, setCosColor] = useState('red');
+  const [tanColor, setTanColor] = useState('green');
+  const [camZoom, setCamZoom] = useState(1.0);
   const [text, setText] = useState<TextParams>({ ...DEFAULT_TEXT, text_position: 'top_right' });
 
   useImperativeHandle(ref, () => ({
@@ -22,8 +36,10 @@ export function TrigPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
       mode: 'trig',
       params: {
         show_sin: showSin, show_cos: showCos, show_tan: showTan,
-        A, w, ph, D, xr,
+        A, w, ph, D, xr, yr,
         show_grid: showGrid, anim,
+        sin_color: sinColor, cos_color: cosColor, tan_color: tanColor,
+        cam_zoom: camZoom,
         ...text,
       },
     }),
@@ -39,12 +55,40 @@ export function TrigPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
       </div>
 
       <div className="sec-sep" />
+      <div className="sec-hdr">Curve Colors</div>
+      {showSin && (
+        <div className="field-row">
+          <label>Sin</label>
+          <select className="app-select" value={sinColor} onChange={e => setSinColor(e.target.value)}>
+            {CURVE_COLORS.map(([l, v]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </div>
+      )}
+      {showCos && (
+        <div className="field-row">
+          <label>Cos</label>
+          <select className="app-select" value={cosColor} onChange={e => setCosColor(e.target.value)}>
+            {CURVE_COLORS.map(([l, v]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </div>
+      )}
+      {showTan && (
+        <div className="field-row">
+          <label>Tan</label>
+          <select className="app-select" value={tanColor} onChange={e => setTanColor(e.target.value)}>
+            {CURVE_COLORS.map(([l, v]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </div>
+      )}
+
+      <div className="sec-sep" />
       <div className="sec-hdr">Parameters</div>
-      <Knob label="Amplitude A" min={0.1} max={4.0} value={A} onChange={setA} />
-      <Knob label="Frequency w" min={0.1} max={5.0} value={w} onChange={setW} />
-      <Knob label="Phase p"    min={-6.3} max={6.3} value={ph} onChange={setPh} />
-      <Knob label="Vertical D" min={-3.0} max={3.0} value={D} onChange={setD} />
-      <Knob label="X Range"    min={1.0}  max={8.0}  value={xr} onChange={setXr} decimals={1} step={0.5} />
+      <Knob label="Amplitude A" min={0.1} max={4.0} value={A}  onChange={setA} />
+      <Knob label="Frequency w" min={0.1} max={5.0} value={w}  onChange={setW} />
+      <Knob label="Phase p"     min={-6.3} max={6.3} value={ph} onChange={setPh} />
+      <Knob label="Vertical D"  min={-3.0} max={3.0} value={D}  onChange={setD} />
+      <Knob label="X Range"     min={1.0}  max={8.0}  value={xr} onChange={setXr} decimals={1} step={0.5} />
+      <Knob label="Y Range"     min={0.5}  max={8.0}  value={yr} onChange={setYr} decimals={1} step={0.5} />
 
       <div className="sec-sep" />
       <div className="sec-hdr">Display</div>
@@ -54,9 +98,13 @@ export function TrigPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
       <div className="field-row">
         <label>Animation</label>
         <select className="app-select" value={anim} onChange={e => setAnim(e.target.value)}>
-          {['Create', 'FadeIn', 'Write'].map(a => <option key={a}>{a}</option>)}
+          {ANIMS.map(a => <option key={a}>{a}</option>)}
         </select>
       </div>
+
+      <div className="sec-sep" />
+      <div className="sec-hdr">Camera</div>
+      <Knob label="Zoom" min={0.5} max={3.0} value={camZoom} onChange={setCamZoom} decimals={2} step={0.1} />
 
       <TextControls value={text} onChange={setText} />
     </>
