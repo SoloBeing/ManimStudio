@@ -2,7 +2,7 @@ name: Build ManimStudio
 
 on:
   push:
-    branches: [master, main]
+    branches: [master, main, ui/editor-redesign]
     tags: ['v*']
   workflow_dispatch:
 
@@ -36,7 +36,11 @@ jobs:
             libgl1-mesa-dev \
             libglib2.0-0 \
             libxcb-xinerama0 \
-            libxkbcommon-x11-0
+            libxkbcommon-x11-0 \
+            libxcb-cursor0 \
+            libnss3 \
+            libxrandr2 \
+            libgbm1
 
       - name: Install system deps (macOS)
         if: runner.os == 'macOS'
@@ -47,6 +51,11 @@ jobs:
         run: choco install ffmpeg -y
         shell: pwsh
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -55,8 +64,17 @@ jobs:
       - name: Install Python 3.13
         run: uv python install 3.13
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: uv sync
+
+      - name: Install glfw
+        run: uv run pip install glfw
+
+      - name: Build React UI
+        working-directory: Manim_Project_files/ui
+        run: |
+          npm ci
+          npm run build
 
       - name: Build (Linux / macOS)
         if: runner.os != 'Windows'
