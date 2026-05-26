@@ -59,14 +59,12 @@ export function StatusBar({
         {fpsList.map(f => <option key={f}>{f} fps</option>)}
       </select>
 
-      {systemInfo?.openglOk && (
-        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text)', cursor: 'pointer', userSelect: 'none' }}>
-          <input type="checkbox" style={{ accentColor: 'var(--blue)' }}
-            checked={opengl} disabled={isRendering}
-            onChange={e => onOpenglChange(e.target.checked)} />
-          OpenGL
-        </label>
-      )}
+      <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text)', cursor: 'pointer', userSelect: 'none' }}>
+        <input type="checkbox" style={{ accentColor: 'var(--blue)' }}
+          checked={opengl} disabled={isRendering}
+          onChange={e => onOpenglChange(e.target.checked)} />
+        OpenGL
+      </label>
 
       <button
         onClick={onBrowseOutput}

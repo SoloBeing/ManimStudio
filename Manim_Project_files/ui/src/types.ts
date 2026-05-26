@@ -6,7 +6,6 @@ export interface SystemInfo {
   latexMissing: string[];
   latexInstallCmd: string;
   latexWarnedBefore: boolean;
-  openglOk: boolean;
   outputDir: string;
   qualities: string[];
   fpsList: string[];

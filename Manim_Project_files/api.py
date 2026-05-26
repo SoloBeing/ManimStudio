@@ -88,17 +88,11 @@ class Api:
             install_cmd = 'curl -sL "https://yihui.org/tinytex/install-bin-unix.sh" | sh'
         else:
             install_cmd = 'wget -qO- "https://yihui.org/tinytex/install-bin-unix.sh" | sh'
-        try:
-            import glfw
-            opengl_ok = True
-        except ImportError:
-            opengl_ok = False
         return {
             "latexOk":           len(missing) == 0,
             "latexMissing":      missing,
             "latexInstallCmd":   install_cmd,
             "latexWarnedBefore": os.path.exists(_LATEX_WARNED_FLAG),
-            "openglOk":          opengl_ok,
             "outputDir":         self._output_dir,
             "qualities":         list(QUALITY.keys()),
             "fpsList":           _FPS_LIST,

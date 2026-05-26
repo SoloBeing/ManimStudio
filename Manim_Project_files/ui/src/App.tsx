@@ -15,7 +15,6 @@ function getApi() {
   return {
     get_system_info: async () => ({
       latexOk: true, latexMissing: [], latexInstallCmd: '', latexWarnedBefore: false,
-      openglOk: true,
       outputDir: '~/ManimStudio/renders',
       qualities: ['Low  480p', 'Med  720p', 'High 1080p', 'GIF'],
       fpsList: ['60', '30', '24', '15'],
