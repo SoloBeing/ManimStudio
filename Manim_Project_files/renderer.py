@@ -5,6 +5,7 @@ QUALITY = {
     "Med  720p" : ["-qm", "--format", "webm"],
     "High 1080p": ["-qh", "--format", "webm"],
     "GIF"       : ["-ql", "--format", "gif"],
+    "Still (PNG)": ["-ql", "-s"],
 }
 
 RENDERS_DIR = os.path.join(os.path.expanduser("~"), "ManimStudio", "renders")
@@ -220,7 +221,7 @@ class RenderThread(threading.Thread):
                 if "partial_movie_files" in root_:
                     continue
                 for fname in files:
-                    if fname.endswith((".mp4", ".webm", ".gif")):
+                    if fname.endswith((".mp4", ".webm", ".gif", ".png")):
                         fp = os.path.join(root_, fname)
                         candidates.append((os.path.getmtime(fp), fp))
             if candidates:

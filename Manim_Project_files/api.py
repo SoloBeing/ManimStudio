@@ -213,12 +213,13 @@ class Api:
             return {"ok": False, "error": "No rendered video available"}
         if not self._window:
             return {"ok": False, "error": "No window"}
-        ext  = os.path.splitext(path)[1].lower()
-        name = os.path.basename(path)
+        ext   = os.path.splitext(path)[1].lower()
+        name  = os.path.basename(path)
+        label = "Image" if ext == ".png" else "Video"
         result = self._window.create_file_dialog(
             webview.FileDialog.SAVE,
             save_filename=name,
-            file_types=(f"Video (*{ext})",),
+            file_types=(f"{label} (*{ext})",),
         )
         if not result:
             return {"ok": False, "error": "Cancelled"}

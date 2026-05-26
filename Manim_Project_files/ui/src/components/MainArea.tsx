@@ -9,6 +9,7 @@ interface MainAreaProps {
 
 export function MainArea({ status, videoUrl, onSave, onDiscard }: MainAreaProps) {
   const hasPending = status === 'done' && !!videoUrl;
+  const isImage    = videoUrl.toLowerCase().endsWith('.png');
 
   return (
     <div className="main-area">
@@ -30,7 +31,16 @@ export function MainArea({ status, videoUrl, onSave, onDiscard }: MainAreaProps)
         </div>
       )}
 
-      {videoUrl && (
+      {videoUrl && isImage && (
+        <img
+          key={videoUrl}
+          className="main-area__image"
+          src={videoUrl}
+          onContextMenu={e => e.preventDefault()}
+        />
+      )}
+
+      {videoUrl && !isImage && (
         <video
           key={videoUrl}
           className="main-area__video"

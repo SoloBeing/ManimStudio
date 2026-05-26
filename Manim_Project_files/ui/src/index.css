@@ -373,6 +373,13 @@ body { overflow: hidden; height: 100vh; }
   display: block;
 }
 
+.main-area__image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
 .main-area__actions {
   position: absolute;
   bottom: 12px;
