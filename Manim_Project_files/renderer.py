@@ -51,6 +51,8 @@ _BLOCKED_IMPORT_ROOTS = frozenset({
     "boto3", "botocore", "google", "azure",
     # DNS
     "dns",
+    # Python git libraries — can commit, clone, push without subprocess
+    "git", "dulwich", "pygit2",
 })
 
 _BLOCKED_CALLS = frozenset({
@@ -59,7 +61,13 @@ _BLOCKED_CALLS = frozenset({
 
 _BLOCKED_ATTRS = frozenset({
     "__builtins__", "__globals__", "__subclasses__", "__code__", "__import__",
-    "show",  # PIL.Image.show() / cv2.imshow alias — spawns OS image viewer
+    "show",    # PIL.Image.show() — spawns OS image viewer
+    "write",   # file object write — bypasses blocked open()
+    # numpy / scipy file-write methods
+    "save", "savetxt", "savez", "savez_compressed", "savemat",
+    # pandas file-write methods
+    "to_csv", "to_json", "to_excel", "to_parquet",
+    "to_pickle", "to_sql", "to_hdf", "to_feather",
 })
 
 
