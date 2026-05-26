@@ -1,4 +1,5 @@
 import type { RenderStatus, SystemInfo } from '../types';
+import { Dropdown } from './shared/Dropdown';
 
 interface StatusBarProps {
   status: RenderStatus;
@@ -49,15 +50,10 @@ export function StatusBar({
 
       <div className="status-bar__sep" />
 
-      <select className="status-bar__select" value={quality}
-        onChange={e => onQualityChange(e.target.value)} disabled={isRendering}>
-        {qualities.map(q => <option key={q}>{q}</option>)}
-      </select>
+      <Dropdown value={quality} options={qualities} onChange={onQualityChange} disabled={isRendering} />
 
-      <select className="status-bar__select" value={fps}
-        onChange={e => onFpsChange(e.target.value)} disabled={isRendering}>
-        {fpsList.map(f => <option key={f}>{f} fps</option>)}
-      </select>
+      <Dropdown value={fps} options={fpsList} onChange={onFpsChange} disabled={isRendering}
+        renderLabel={f => `${f} fps`} />
 
       <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text)', cursor: 'pointer', userSelect: 'none' }}>
         <input type="checkbox" style={{ accentColor: 'var(--blue)' }}
