@@ -28,6 +28,19 @@ _BLOCKED_IMPORT_ROOTS = frozenset({
     "pty", "tty", "fcntl", "resource", "signal",
     "sysconfig", "site", "runpy", "inspect", "dis", "gc",
     "dbm", "sqlite3",
+    # GUI libraries — spawn windows inside the render subprocess, causing hangs
+    "matplotlib", "tkinter", "wx",
+    "PyQt5", "PyQt6", "PySide2", "PySide6",
+    "gi", "pygame", "pyglet", "kivy", "toga", "dearpygui",
+    "cv2",        # cv2.imshow() also creates windows
+    # stdlib window/browser spawners
+    "turtle",     # Tkinter-based, creates a window
+    "webbrowser", # opens a browser tab
+    "idlelib",    # IDLE GUI
+    "antigravity",# opens a browser (Easter egg)
+    # visualization libs that transitively import matplotlib or open a browser
+    "seaborn", "plotly", "bokeh", "altair",
+    "vispy", "mayavi", "vtk", "open3d", "vpython",
 })
 
 _BLOCKED_CALLS = frozenset({
@@ -36,6 +49,7 @@ _BLOCKED_CALLS = frozenset({
 
 _BLOCKED_ATTRS = frozenset({
     "__builtins__", "__globals__", "__subclasses__", "__code__", "__import__",
+    "show",  # PIL.Image.show() / cv2.imshow alias — spawns OS image viewer
 })
 
 
