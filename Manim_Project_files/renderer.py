@@ -41,6 +41,16 @@ _BLOCKED_IMPORT_ROOTS = frozenset({
     # visualization libs that transitively import matplotlib or open a browser
     "seaborn", "plotly", "bokeh", "altair",
     "vispy", "mayavi", "vtk", "open3d", "vpython",
+    # stdlib network modules not covered above
+    "urllib3", "ssl", "select", "selectors",
+    "imaplib", "poplib", "nntplib",
+    # third-party HTTP / WebSocket / RPC / SSH clients
+    "httpx", "aiohttp", "httplib2", "httpcore", "pycurl",
+    "websocket", "websockets", "grpc", "paramiko", "requests_html",
+    # cloud SDKs (all make outbound network calls)
+    "boto3", "botocore", "google", "azure",
+    # DNS
+    "dns",
 })
 
 _BLOCKED_CALLS = frozenset({
