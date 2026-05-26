@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 
 interface BottomPanelProps {
   lines: string[];
+  logHeight: number;
+  onResizeStart: (e: MouseEvent<HTMLDivElement>) => void;
 }
 
 function lineClass(line: string): string {
@@ -12,7 +14,7 @@ function lineClass(line: string): string {
   return 'log-line';
 }
 
-export function BottomPanel({ lines }: BottomPanelProps) {
+export function BottomPanel({ lines, logHeight, onResizeStart }: BottomPanelProps) {
   const [open, setOpen] = useState(true);
   const logRef = useRef<HTMLDivElement>(null);
 
@@ -24,17 +26,20 @@ export function BottomPanel({ lines }: BottomPanelProps) {
 
   return (
     <div className="bottom-panel">
+      {open && (
+        <div className="resize-handle resize-handle--horizontal" onMouseDown={onResizeStart} />
+      )}
       <div className="bottom-panel__header" onClick={() => setOpen(o => !o)}>
         <span className="bottom-panel__title">Build Log</span>
         <span style={{ fontSize: 10, color: 'var(--dim)' }}>{lines.length} lines</span>
         <span className={`bottom-panel__arrow${open ? ' open' : ''}`}>▲</span>
       </div>
       {open && (
-        <div className="bottom-panel__log" ref={logRef}>
+        <div className="bottom-panel__log" style={{ height: logHeight }} ref={logRef}>
           {lines.length === 0
             ? <div className="log-line log-line--dim">No output yet.</div>
             : lines.map((l, i) => (
-                <div key={i} className={lineClass(l)}>{l || ' '}</div>
+                <div key={i} className={lineClass(l)}>{l || ' '}</div>
               ))
           }
         </div>

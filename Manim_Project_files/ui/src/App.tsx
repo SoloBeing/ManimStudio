@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import type { Mode, PanelHandle, RenderStatus, SystemInfo } from './types';
 import { ActivityBar } from './components/ActivityBar';
 import { Sidebar }     from './components/Sidebar';
@@ -45,6 +45,57 @@ export default function App() {
   const [latexDialog, setLatexDialog] = useState<{ missing: string[]; installCmd: string; withDontShow: boolean } | null>(null);
 
   const panelRef = useRef<PanelHandle>(null);
+
+  const [sidebarWidth, setSidebarWidth] = useState(340);
+  const [bottomHeight, setBottomHeight] = useState(160);
+  const dragging    = useRef<'sidebar' | 'bottom' | null>(null);
+  const dragStartX  = useRef(0);
+  const dragStartY  = useRef(0);
+  const dragStartW  = useRef(0);
+  const dragStartH  = useRef(0);
+
+  useEffect(() => {
+    function onMove(e: globalThis.MouseEvent) {
+      if (dragging.current === 'sidebar') {
+        const w = dragStartW.current + (e.clientX - dragStartX.current);
+        setSidebarWidth(Math.max(180, Math.min(600, w)));
+      } else if (dragging.current === 'bottom') {
+        const h = dragStartH.current - (e.clientY - dragStartY.current);
+        setBottomHeight(Math.max(60, Math.min(500, h)));
+      }
+    }
+    function onUp() {
+      if (dragging.current) {
+        dragging.current = null;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+  }, []);
+
+  function startSidebarDrag(e: MouseEvent<HTMLDivElement>) {
+    dragging.current  = 'sidebar';
+    dragStartX.current = e.clientX;
+    dragStartW.current = sidebarWidth;
+    document.body.style.cursor     = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  }
+
+  function startBottomDrag(e: MouseEvent<HTMLDivElement>) {
+    dragging.current  = 'bottom';
+    dragStartY.current = e.clientY;
+    dragStartH.current = bottomHeight;
+    document.body.style.cursor     = 'row-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  }
 
   // Register push callback and initialise system info
   useEffect(() => {
@@ -171,7 +222,10 @@ export default function App() {
       )}
       <div className="app-body">
         <ActivityBar active={activeMode} onChange={setActiveMode} />
-        <Sidebar activeMode={activeMode} panelRef={panelRef} />
+        <div style={{ width: sidebarWidth, flexShrink: 0, overflow: 'hidden', display: 'flex' }}>
+          <Sidebar activeMode={activeMode} panelRef={panelRef} />
+        </div>
+        <div className="resize-handle resize-handle--vertical" onMouseDown={startSidebarDrag} />
         <div className="main-content">
           <MainArea
             status={status}
@@ -181,7 +235,7 @@ export default function App() {
           />
         </div>
       </div>
-      <BottomPanel lines={logLines} />
+      <BottomPanel lines={logLines} logHeight={bottomHeight} onResizeStart={startBottomDrag} />
       <StatusBar
         status={status}
         systemInfo={systemInfo}
