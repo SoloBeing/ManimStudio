@@ -6,9 +6,10 @@ interface DropdownProps {
   onChange: (v: string) => void;
   disabled?: boolean;
   renderLabel?: (v: string) => string;
+  direction?: 'up' | 'down';
 }
 
-export function Dropdown({ value, options, onChange, disabled, renderLabel }: DropdownProps) {
+export function Dropdown({ value, options, onChange, disabled, renderLabel, direction = 'up' }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -53,14 +54,15 @@ export function Dropdown({ value, options, onChange, disabled, renderLabel }: Dr
       {open && (
         <div style={{
           position: 'absolute',
-          bottom: 'calc(100% + 4px)',
+          ...(direction === 'up'
+            ? { bottom: 'calc(100% + 4px)', boxShadow: '0 -4px 16px rgba(0,0,0,0.5)' }
+            : { top: 'calc(100% + 4px)',    boxShadow: '0  4px 16px rgba(0,0,0,0.5)' }),
           left: 0,
           background: 'var(--panel)',
           border: '1px solid var(--accent-border)',
           borderRadius: 4,
           zIndex: 9999,
           minWidth: '100%',
-          boxShadow: '0 -4px 16px rgba(0,0,0,0.5)',
           overflow: 'hidden',
         }}>
           {options.map(opt => (

@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
-import type { Mode, PanelHandle, RenderStatus, SystemInfo } from './types';
+import type { Mode, PanelHandle, RenderStatus, SystemInfo, Preset, RecentRender } from './types';
 import { ActivityBar } from './components/ActivityBar';
 import { Sidebar }     from './components/Sidebar';
 import { MainArea }    from './components/MainArea';
 import { BottomPanel } from './components/BottomPanel';
 import { StatusBar }   from './components/StatusBar';
+import { TopBar }      from './components/TopBar';
 import { CloseDialog }  from './components/CloseDialog';
 import { LaTeXDialog }  from './components/LaTeXDialog';
+import { loadStoredSettings } from './components/panels/SettingsPanel';
 import './App.css';
 
 function getApi() {
   if (window.pywebview) return window.pywebview.api;
-  // dev stub — used when running in a plain browser without PyWebView
   return {
     get_system_info: async () => ({
       latexOk: true, latexMissing: [], latexInstallCmd: '', latexWarnedBefore: false,
@@ -28,7 +29,18 @@ function getApi() {
     discard_render: async () => ({ ok: true }),
     confirm_close: async () => ({ ok: true }),
     dismiss_latex_warning: async () => ({ ok: true }),
+    load_render: async (): Promise<{ ok: boolean; videoUrl?: string; isImage?: boolean; error?: string }> => ({ ok: false }),
   };
+}
+
+function loadPresets(): Preset[] {
+  try { return JSON.parse(localStorage.getItem('manim_presets') ?? '[]'); }
+  catch { return []; }
+}
+
+function loadRecentRenders(): RecentRender[] {
+  try { return JSON.parse(localStorage.getItem('manim_recent') ?? '[]'); }
+  catch { return []; }
 }
 
 export default function App() {
@@ -37,14 +49,18 @@ export default function App() {
   const [logLines, setLogLines]     = useState<string[]>([]);
   const [videoUrl, setVideoUrl]     = useState('');
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
-  const [quality, setQuality]         = useState('Med  720p');
-  const [fps, setFps]                 = useState('30');
-  const [opengl, setOpengl]           = useState(false);
+  const [quality, setQuality]       = useState('Med  720p');
+  const [fps, setFps]               = useState('30');
+  const [opengl, setOpengl]         = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
-  const [outputDir, setOutputDir] = useState('');
+  const [outputDir, setOutputDir]   = useState('');
   const [latexDialog, setLatexDialog] = useState<{ missing: string[]; installCmd: string; withDontShow: boolean } | null>(null);
 
-  const panelRef = useRef<PanelHandle>(null);
+  const [presets, setPresets]             = useState<Preset[]>(loadPresets);
+  const [recentRenders, setRecentRenders] = useState<RecentRender[]>(loadRecentRenders);
+
+  const panelRef      = useRef<PanelHandle>(null);
+  const renderMetaRef = useRef<{ mode: string; quality: string; fps: string } | null>(null);
 
   const [sidebarWidth, setSidebarWidth] = useState(340);
   const [bottomHeight, setBottomHeight] = useState(160);
@@ -53,6 +69,11 @@ export default function App() {
   const dragStartY  = useRef(0);
   const dragStartW  = useRef(0);
   const dragStartH  = useRef(0);
+
+  // Persist quality/fps/opengl on every change
+  useEffect(() => {
+    localStorage.setItem('manim_settings', JSON.stringify({ quality, fps, opengl }));
+  }, [quality, fps, opengl]);
 
   useEffect(() => {
     function onMove(e: globalThis.MouseEvent) {
@@ -80,7 +101,7 @@ export default function App() {
   }, []);
 
   function startSidebarDrag(e: MouseEvent<HTMLDivElement>) {
-    dragging.current  = 'sidebar';
+    dragging.current   = 'sidebar';
     dragStartX.current = e.clientX;
     dragStartW.current = sidebarWidth;
     document.body.style.cursor     = 'col-resize';
@@ -89,7 +110,7 @@ export default function App() {
   }
 
   function startBottomDrag(e: MouseEvent<HTMLDivElement>) {
-    dragging.current  = 'bottom';
+    dragging.current   = 'bottom';
     dragStartY.current = e.clientY;
     dragStartH.current = bottomHeight;
     document.body.style.cursor     = 'row-resize';
@@ -97,7 +118,6 @@ export default function App() {
     e.preventDefault();
   }
 
-  // Register push callback and initialise system info
   useEffect(() => {
     window.__manimState = (state) => {
       if (state.status)   setStatus(state.status);
@@ -111,8 +131,10 @@ export default function App() {
       getApi().get_system_info().then(info => {
         setSystemInfo(info);
         setOutputDir(info.outputDir);
-        setQuality(info.qualities[1] ?? info.qualities[0]);
-        setFps(info.fpsList[1] ?? info.fpsList[0]);
+        const stored = loadStoredSettings();
+        setQuality(stored.quality ?? info.qualities[1] ?? info.qualities[0]);
+        setFps(stored.fps ?? info.fpsList[1] ?? info.fpsList[0]);
+        if (stored.opengl !== undefined) setOpengl(stored.opengl);
         if (info.latexMissing.length > 0 && !info.latexWarnedBefore) {
           setLatexDialog({ missing: info.latexMissing, installCmd: info.latexInstallCmd, withDontShow: true });
         }
@@ -120,10 +142,8 @@ export default function App() {
     }
 
     if (window.pywebview) {
-      // pywebview exists but bridge may not be ready — always wait for the event
       window.addEventListener('pywebviewready', init, { once: true } as EventListenerOptions);
     } else {
-      // plain browser / dev mode — call immediately
       init();
     }
 
@@ -134,18 +154,12 @@ export default function App() {
     const handle = panelRef.current;
     if (!handle) return;
     const { mode, params, sceneName } = handle.getParams();
-
+    renderMetaRef.current = { mode, quality, fps };
     setLogLines([]);
     setVideoUrl('');
     setStatus('rendering');
-
     const result = await getApi().render(
-      mode,
-      JSON.stringify(params),
-      sceneName ?? '',
-      quality,
-      fps.split(' ')[0],
-      opengl,
+      mode, JSON.stringify(params), sceneName ?? '', quality, fps.split(' ')[0], opengl,
     );
     if (!result.ok) {
       setLogLines(prev => [...prev, `[ERROR] ${result.error}`]);
@@ -159,7 +173,21 @@ export default function App() {
 
   async function handleSave() {
     const result = await getApi().save_render();
-    if (!result.ok && result.error !== 'Cancelled') {
+    if (result.ok && result.path && renderMetaRef.current) {
+      const { mode, quality: q, fps: f } = renderMetaRef.current;
+      const entry: RecentRender = {
+        id: crypto.randomUUID(),
+        timestamp: Date.now(),
+        mode, quality: q, fps: f,
+        path: result.path,
+        isImage: result.path.endsWith('.png'),
+      };
+      setRecentRenders(prev => {
+        const next = [entry, ...prev].slice(0, 20);
+        localStorage.setItem('manim_recent', JSON.stringify(next));
+        return next;
+      });
+    } else if (!result.ok && result.error !== 'Cancelled') {
       setLogLines(prev => [...prev, `[WARN] Save failed: ${result.error}`]);
     }
   }
@@ -203,23 +231,63 @@ export default function App() {
     }
   }
 
+  // Preset management
+  function handleSavePreset(name: string) {
+    const p: Preset = { id: crypto.randomUUID(), name, quality, fps, opengl };
+    const next = [p, ...presets];
+    setPresets(next);
+    localStorage.setItem('manim_presets', JSON.stringify(next));
+  }
+
+  function handleDeletePreset(id: string) {
+    const next = presets.filter(p => p.id !== id);
+    setPresets(next);
+    localStorage.setItem('manim_presets', JSON.stringify(next));
+  }
+
+  function handleApplyPreset(p: Preset) {
+    setQuality(p.quality);
+    setFps(p.fps);
+    setOpengl(p.opengl);
+  }
+
+  // Recent renders
+  async function handleLoadRender(r: RecentRender) {
+    const result = await getApi().load_render(r.path);
+    if (result.ok && result.videoUrl) {
+      setVideoUrl(result.videoUrl);
+      setStatus('done');
+    } else {
+      setLogLines(prev => [...prev, `[WARN] Could not load: ${result.error ?? 'File not found'}`]);
+    }
+  }
+
+  function handleClearRecent() {
+    setRecentRenders([]);
+    localStorage.removeItem('manim_recent');
+  }
+
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       {showCloseDialog && (
-        <CloseDialog
-          onSave={handleCloseSave}
-          onDiscard={handleCloseDiscard}
-          onCancel={handleCloseCancel}
-        />
+        <CloseDialog onSave={handleCloseSave} onDiscard={handleCloseDiscard} onCancel={handleCloseCancel} />
       )}
       {latexDialog && (
         <LaTeXDialog
-          missing={latexDialog.missing}
-          installCmd={latexDialog.installCmd}
-          withDontShow={latexDialog.withDontShow}
-          onDismiss={handleLatexDismiss}
+          missing={latexDialog.missing} installCmd={latexDialog.installCmd}
+          withDontShow={latexDialog.withDontShow} onDismiss={handleLatexDismiss}
         />
       )}
+
+      <TopBar
+        systemInfo={systemInfo} quality={quality} fps={fps} opengl={opengl} outputDir={outputDir}
+        onQualityChange={setQuality} onFpsChange={setFps} onOpenglChange={setOpengl}
+        onBrowseOutput={handleBrowseOutput}
+        presets={presets}
+        onApplyPreset={handleApplyPreset} onSavePreset={handleSavePreset} onDeletePreset={handleDeletePreset}
+        recentRenders={recentRenders} onLoadRender={handleLoadRender} onClearRecent={handleClearRecent}
+      />
+
       <div className="app-body">
         <ActivityBar active={activeMode} onChange={setActiveMode} />
         <div style={{ width: sidebarWidth, flexShrink: 0, overflow: 'hidden', display: 'flex' }}>
@@ -227,29 +295,13 @@ export default function App() {
         </div>
         <div className="resize-handle resize-handle--vertical" onMouseDown={startSidebarDrag} />
         <div className="main-content">
-          <MainArea
-            status={status}
-            videoUrl={videoUrl}
-            onSave={handleSave}
-            onDiscard={handleDiscard}
-          />
+          <MainArea status={status} videoUrl={videoUrl} onSave={handleSave} onDiscard={handleDiscard} />
         </div>
       </div>
       <BottomPanel lines={logLines} logHeight={bottomHeight} onResizeStart={startBottomDrag} />
       <StatusBar
-        status={status}
-        systemInfo={systemInfo}
-        quality={quality}
-        fps={fps}
-        opengl={opengl}
-        outputDir={outputDir}
-        onQualityChange={setQuality}
-        onFpsChange={setFps}
-        onOpenglChange={setOpengl}
-        onBrowseOutput={handleBrowseOutput}
-        onRender={handleRender}
-        onStop={handleStop}
-        onLatexNotice={handleLatexNotice}
+        status={status} systemInfo={systemInfo}
+        onRender={handleRender} onStop={handleStop} onLatexNotice={handleLatexNotice}
       />
     </div>
   );

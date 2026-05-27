@@ -255,6 +255,17 @@ class Api:
             self._window.destroy()
         return {"ok": True}
 
+    def load_render(self, path: str) -> dict:
+        path = os.path.expanduser(path)
+        if not os.path.exists(path):
+            return {"ok": False, "error": "File not found"}
+        abs_path = os.path.abspath(path)
+        parent = os.path.dirname(abs_path)
+        if parent not in self._allowed_dirs:
+            self._allowed_dirs.append(parent)
+        is_image = abs_path.lower().endswith((".png", ".jpg", ".jpeg"))
+        return {"ok": True, "videoUrl": f"http://127.0.0.1:{self._http_port}{abs_path}", "isImage": is_image}
+
     # ------------------------------------------------------------------
     def cleanup(self):
         with self._lock:

@@ -1,5 +1,23 @@
 export type Mode = 'trig' | 'complex' | 'linear' | 'code' | 'streamlines' | 'playground'
                  | 'geometry' | 'barchart' | 'surface3d' | 'numberline';
+
+export interface Preset {
+  id: string;
+  name: string;
+  quality: string;
+  fps: string;
+  opengl: boolean;
+}
+
+export interface RecentRender {
+  id: string;
+  timestamp: number;
+  mode: string;
+  quality: string;
+  fps: string;
+  path: string;
+  isImage: boolean;
+}
 export type RenderStatus = 'idle' | 'rendering' | 'done' | 'error' | 'stopped';
 
 export interface SystemInfo {
@@ -72,6 +90,7 @@ export interface PyWebViewApi {
   discard_render: () => Promise<{ ok: boolean }>;
   confirm_close: () => Promise<{ ok: boolean }>;
   dismiss_latex_warning: () => Promise<{ ok: boolean; error?: string }>;
+  load_render: (path: string) => Promise<{ ok: boolean; videoUrl?: string; isImage?: boolean; error?: string }>;
 }
 
 declare global {
