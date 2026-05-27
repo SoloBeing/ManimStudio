@@ -41,14 +41,13 @@ export function SettingsPanel({
           <Dropdown value={fps} options={fpsList} onChange={onFpsChange} renderLabel={f => `${f} fps`} direction="down" />
         </Row>
         <Row label="OpenGL">
-          <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', userSelect: 'none' }}>
+          <label className="app-check">
             <input
               type="checkbox"
               checked={opengl}
               onChange={e => onOpenglChange(e.target.checked)}
-              style={{ accentColor: 'var(--blue)', width: 13, height: 13, cursor: 'pointer' }}
             />
-            <span style={{ fontSize: 12, color: 'var(--text)' }}>Enable OpenGL renderer</span>
+            <span>Enable OpenGL renderer</span>
           </label>
         </Row>
       </section>

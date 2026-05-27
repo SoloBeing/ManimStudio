@@ -29,6 +29,40 @@
 
 body { overflow: hidden; height: 100vh; }
 
+/* ── Global checkbox theme ───────────────────────────────────────────────── */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 13px; height: 13px;
+  background: var(--bg);
+  border: 1px solid var(--dim);
+  border-radius: 3px;
+  position: relative;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+input[type="checkbox"]:checked {
+  background: var(--blue);
+  border-color: var(--blue);
+}
+
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 3px; top: 0px;
+  width: 4px; height: 7px;
+  border: 2px solid #fff;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+}
+
+input[type="checkbox"]:hover:not(:checked) {
+  border-color: var(--blue);
+}
+
 #root {
   height: 100vh;
   display: flex;
@@ -256,11 +290,6 @@ body { overflow: hidden; height: 100vh; }
   user-select: none;
 }
 
-.app-check input[type="checkbox"] {
-  width: 13px; height: 13px;
-  accent-color: var(--blue);
-  cursor: pointer;
-}
 
 /* ── Text Controls section ──────────────────────────────────────────────── */
 .text-controls__toggle {

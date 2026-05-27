@@ -38,7 +38,7 @@ export function LaTeXDialog({ missing, installCmd, withDontShow, onDismiss }: La
         </div>
         {withDontShow && (
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--dim)', cursor: 'pointer', userSelect: 'none' }}>
-            <input type="checkbox" style={{ accentColor: 'var(--blue)' }}
+            <input type="checkbox"
               checked={dontShow} onChange={e => setDontShow(e.target.checked)} />
             Don't show this again
           </label>
