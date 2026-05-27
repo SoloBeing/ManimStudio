@@ -10,6 +10,23 @@ const DOT_COLORS = [
   ['Purple', 'purple'],['White',  'white'],
 ];
 
+const FUNC_OPTIONS = [
+  ['x',       'x'],
+  ['x²',      'x^2'],
+  ['x³',      'x^3'],
+  ['sin(x)',  'sin(x)'],
+  ['cos(x)',  'cos(x)'],
+  ['|x|',     '|x|'],
+  ['√|x|',    'sqrt|x|'],
+  ['1/x',     '1/x'],
+];
+
+const FUNC_COLORS = [
+  ['Yellow', 'yellow'], ['Green',  'green'],  ['Red',    'red'],
+  ['Cyan',   'teal'],   ['Purple', 'purple'], ['Orange', 'orange'],
+  ['White',  'white'],  ['Blue',   'blue'],
+];
+
 export function NumberLinePanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
   const [xMin, setXMin]           = useState(-5);
   const [xMax, setXMax]           = useState(5);
@@ -21,6 +38,10 @@ export function NumberLinePanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
   const [runTime, setRunTime]     = useState(1.5);
   const [dotColor, setDotColor]   = useState('blue');
   const [showLabel, setShowLabel] = useState(true);
+  const [showFunc, setShowFunc]   = useState(false);
+  const [funcExpr, setFuncExpr]   = useState('x^2');
+  const [funcColor, setFuncColor] = useState('yellow');
+  const [showVline, setShowVline] = useState(true);
   const [text, setText]           = useState<TextParams>({ ...DEFAULT_TEXT });
 
   useImperativeHandle(ref, () => {
@@ -40,6 +61,10 @@ export function NumberLinePanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
           run_time_per_step: runTime,
           dot_color: dotColor,
           show_label: showLabel,
+          show_func: showFunc,
+          func_expr: funcExpr,
+          func_color: funcColor,
+          show_vline: showVline,
           ...text,
         },
       }),
@@ -87,6 +112,37 @@ export function NumberLinePanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
         </div>
       ))}
       <Knob label="Speed (s)" min={0.3} max={4.0} value={runTime} onChange={setRunTime} decimals={1} step={0.1} />
+
+      <div className="sec-sep" />
+      <div className="sec-hdr">Function Overlay</div>
+      <div className="check-row">
+        <label className="app-check">
+          <input type="checkbox" checked={showFunc} onChange={e => setShowFunc(e.target.checked)} />
+          Enable
+        </label>
+      </div>
+      {showFunc && (
+        <>
+          <div className="field-row">
+            <label>f(x)</label>
+            <select className="app-select" value={funcExpr} onChange={e => setFuncExpr(e.target.value)}>
+              {FUNC_OPTIONS.map(([l, v]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+          <div className="field-row">
+            <label>Color</label>
+            <select className="app-select" value={funcColor} onChange={e => setFuncColor(e.target.value)}>
+              {FUNC_COLORS.map(([l, v]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+          <div className="check-row">
+            <label className="app-check">
+              <input type="checkbox" checked={showVline} onChange={e => setShowVline(e.target.checked)} />
+              Vertical Indicator
+            </label>
+          </div>
+        </>
+      )}
 
       <TextControls value={text} onChange={setText} />
     </>

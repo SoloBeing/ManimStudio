@@ -1201,9 +1201,33 @@ def build_surface3d_source(
 # Number Line / ValueTracker
 # ===========================================================================
 
+_NL_FUNC_EVAL = {
+    'x':       lambda x: x,
+    'x^2':     lambda x: x**2,
+    'x^3':     lambda x: x**3,
+    'sin(x)':  lambda x: __import__('math').sin(x),
+    'cos(x)':  lambda x: __import__('math').cos(x),
+    '|x|':     lambda x: abs(x),
+    'sqrt|x|': lambda x: __import__('math').sqrt(abs(x)),
+    '1/x':     lambda x: (1.0 / x if abs(x) > 0.05 else 0),
+}
+
+_NL_FUNC_BODY = {
+    'x':       'x',
+    'x^2':     'x**2',
+    'x^3':     'x**3',
+    'sin(x)':  'math.sin(x)',
+    'cos(x)':  'math.cos(x)',
+    '|x|':     'abs(x)',
+    'sqrt|x|': 'math.sqrt(abs(x))',
+    '1/x':     '(1.0 / x if abs(x) > 0.05 else 0)',
+}
+
+
 def build_numberline_source(
     x_min, x_max, tick_step, start_val, target_vals,
     run_time_per_step, dot_color, show_label,
+    show_func=False, func_expr='x^2', func_color='yellow', show_vline=True,
     text_position="top_left", text_color="white", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
     bold=False, italic=False, stroke_width=0, stroke_color="white",
@@ -1213,6 +1237,7 @@ def build_numberline_source(
     txt_col    = _text_color(text_color)
     stroke_col = _text_color(stroke_color)
     dot_col    = _text_color(dot_color or "blue")
+    func_col   = _text_color(func_color or "yellow")
     font = text_font or "Arial"
     fs   = max(8, int(text_font_size))
 
@@ -1224,6 +1249,26 @@ def build_numberline_source(
     if x0 >= x1:
         x1 = x0 + 10
 
+    # Pre-compute y_scale for the function overlay
+    y_scale = 1.0
+    if show_func:
+        fn_key  = func_expr if func_expr in _NL_FUNC_EVAL else 'x^2'
+        fn_eval = _NL_FUNC_EVAL[fn_key]
+        import math as _m
+        xs = [x0 + (x1 - x0) * i / 40 for i in range(41)]
+        try:
+            ys = []
+            for xv in xs:
+                try:
+                    ys.append(abs(fn_eval(xv)))
+                except Exception:
+                    pass
+            y_max = max(ys) if ys else 1.0
+            y_scale = round(1.8 / max(y_max, 0.001), 6)
+        except Exception:
+            y_scale = 1.0
+        func_body = _NL_FUNC_BODY.get(fn_key, 'x**2')
+
     targets = []
     for v in (target_vals or []):
         try:
@@ -1234,6 +1279,7 @@ def build_numberline_source(
 
     L = [
         "from manim import *",
+        *(["import numpy as np"] if show_func else []),
         "",
         "class ManimScene(Scene):",
         "    def construct(self):",
@@ -1256,6 +1302,33 @@ def build_numberline_source(
             "        )",
         ]
 
+    if show_func:
+        L += [
+            "        import math",
+            f"        def _f(x):",
+            f"            try: return {func_body}",
+            f"            except Exception: return 0",
+            f"        _ys = {y_scale}",
+            f"        curve = ParametricFunction(",
+            f"            lambda t: nl.n2p(t) + np.array([0, _f(t) * _ys, 0]),",
+            f"            t_range=[{x0:.4f}, {x1:.4f}, {max(0.02, (x1-x0)/200):.4f}],",
+            f"            color={func_col},",
+            f"            stroke_width=2.5,",
+            f"        )",
+        ]
+        if show_vline:
+            L += [
+                f"        v_ind = always_redraw(lambda: DashedLine(",
+                f"            nl.n2p(tracker.get_value()),",
+                f"            nl.n2p(tracker.get_value()) + np.array([0, _f(tracker.get_value()) * _ys, 0]),",
+                f"            color={func_col}, dash_length=0.08, stroke_width=1.5,",
+                f"        ))",
+                f"        curve_dot = always_redraw(lambda: Dot(",
+                f"            nl.n2p(tracker.get_value()) + np.array([0, _f(tracker.get_value()) * _ys, 0]),",
+                f"            color={func_col}, radius=0.1,",
+                f"        ))",
+            ]
+
     if text_content:
         _place_custom_lbl(L, text_content, font, fs, txt_col, bold, italic,
                           stroke_width, stroke_col, pos_call, gradient, x_offset, y_offset)
@@ -1268,8 +1341,12 @@ def build_numberline_source(
             L.append(_place_label("title", pos_call, x_offset, y_offset))
 
     L.append("        self.play(Create(nl), run_time=0.8)")
+    if show_func:
+        L.append("        self.play(Create(curve), run_time=1.0)")
     fade_parts = ["FadeIn(dot)"]
     if show_label:         fade_parts.append("FadeIn(val_lbl)")
+    if show_func and show_vline:
+        fade_parts += ["FadeIn(v_ind)", "FadeIn(curve_dot)"]
     if text_content:       fade_parts.append("FadeIn(custom_lbl)")
     if show_preset_labels: fade_parts.append("FadeIn(title)")
     L.append(f"        self.play({', '.join(fade_parts)}, run_time=0.5)")

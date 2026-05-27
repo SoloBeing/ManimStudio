@@ -7,7 +7,8 @@ import builders
 
 _FPS_LIST = ["60", "30", "24", "15"]
 
-_LATEX_WARNED_FLAG = os.path.join(os.path.expanduser("~"), "ManimStudio", "latex_warned")
+_LATEX_WARNED_FLAG  = os.path.join(os.path.expanduser("~"), "ManimStudio", "latex_warned")
+_RECENT_RENDERS_FILE = os.path.join(os.path.expanduser("~"), "ManimStudio", "recent_renders.json")
 
 _BUILDERS = {
     "trig":        builders.build_trig_source,
@@ -254,6 +255,34 @@ class Api:
         if self._window:
             self._window.destroy()
         return {"ok": True}
+
+    def get_recent_renders(self) -> list:
+        try:
+            with open(_RECENT_RENDERS_FILE) as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
+
+    def add_recent_render(self, entry_json: str) -> dict:
+        try:
+            entry   = json.loads(entry_json)
+            renders = self.get_recent_renders()
+            renders = [entry] + renders
+            renders = renders[:20]
+            os.makedirs(os.path.dirname(_RECENT_RENDERS_FILE), exist_ok=True)
+            with open(_RECENT_RENDERS_FILE, "w") as f:
+                json.dump(renders, f)
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def clear_recent_renders(self) -> dict:
+        try:
+            if os.path.exists(_RECENT_RENDERS_FILE):
+                os.remove(_RECENT_RENDERS_FILE)
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
 
     def load_render(self, path: str) -> dict:
         path = os.path.expanduser(path)

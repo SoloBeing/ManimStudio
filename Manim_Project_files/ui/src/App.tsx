@@ -30,16 +30,14 @@ function getApi() {
     confirm_close: async () => ({ ok: true }),
     dismiss_latex_warning: async () => ({ ok: true }),
     load_render: async (): Promise<{ ok: boolean; videoUrl?: string; isImage?: boolean; error?: string }> => ({ ok: false }),
+    get_recent_renders: async (): Promise<RecentRender[]> => [],
+    add_recent_render: async (): Promise<{ ok: boolean; error?: string }> => ({ ok: true }),
+    clear_recent_renders: async (): Promise<{ ok: boolean; error?: string }> => ({ ok: true }),
   };
 }
 
 function loadPresets(): Preset[] {
   try { return JSON.parse(localStorage.getItem('manim_presets') ?? '[]'); }
-  catch { return []; }
-}
-
-function loadRecentRenders(): RecentRender[] {
-  try { return JSON.parse(localStorage.getItem('manim_recent') ?? '[]'); }
   catch { return []; }
 }
 
@@ -57,7 +55,7 @@ export default function App() {
   const [latexDialog, setLatexDialog] = useState<{ missing: string[]; installCmd: string; withDontShow: boolean } | null>(null);
 
   const [presets, setPresets]             = useState<Preset[]>(loadPresets);
-  const [recentRenders, setRecentRenders] = useState<RecentRender[]>(loadRecentRenders);
+  const [recentRenders, setRecentRenders] = useState<RecentRender[]>([]);
 
   const panelRef      = useRef<PanelHandle>(null);
   const renderMetaRef = useRef<{ mode: string; quality: string; fps: string } | null>(null);
@@ -128,9 +126,13 @@ export default function App() {
     };
 
     function init() {
-      getApi().get_system_info().then(info => {
+      Promise.all([
+        getApi().get_system_info(),
+        getApi().get_recent_renders(),
+      ]).then(([info, recent]) => {
         setSystemInfo(info);
         setOutputDir(info.outputDir);
+        setRecentRenders(recent);
         const stored = loadStoredSettings();
         setQuality(stored.quality ?? info.qualities[1] ?? info.qualities[0]);
         setFps(stored.fps ?? info.fpsList[1] ?? info.fpsList[0]);
@@ -182,11 +184,8 @@ export default function App() {
         path: result.path,
         isImage: result.path.endsWith('.png'),
       };
-      setRecentRenders(prev => {
-        const next = [entry, ...prev].slice(0, 20);
-        localStorage.setItem('manim_recent', JSON.stringify(next));
-        return next;
-      });
+      await getApi().add_recent_render(JSON.stringify(entry));
+      setRecentRenders(prev => [entry, ...prev].slice(0, 20));
     } else if (!result.ok && result.error !== 'Cancelled') {
       setLogLines(prev => [...prev, `[WARN] Save failed: ${result.error}`]);
     }
@@ -262,9 +261,9 @@ export default function App() {
     }
   }
 
-  function handleClearRecent() {
+  async function handleClearRecent() {
+    await getApi().clear_recent_renders();
     setRecentRenders([]);
-    localStorage.removeItem('manim_recent');
   }
 
   return (

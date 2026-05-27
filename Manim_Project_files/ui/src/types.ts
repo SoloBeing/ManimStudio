@@ -91,6 +91,9 @@ export interface PyWebViewApi {
   confirm_close: () => Promise<{ ok: boolean }>;
   dismiss_latex_warning: () => Promise<{ ok: boolean; error?: string }>;
   load_render: (path: string) => Promise<{ ok: boolean; videoUrl?: string; isImage?: boolean; error?: string }>;
+  get_recent_renders: () => Promise<RecentRender[]>;
+  add_recent_render: (entryJson: string) => Promise<{ ok: boolean; error?: string }>;
+  clear_recent_renders: () => Promise<{ ok: boolean; error?: string }>;
 }
 
 declare global {
