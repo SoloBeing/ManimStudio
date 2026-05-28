@@ -1,19 +1,37 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import sys as _sys
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 datas = []
 binaries = []
-hiddenimports = [
-    # PyWebView Qt backend — dynamically imported at runtime
-    "webview.platforms.qt",
-    "qtpy",
-    # Qt WebEngine (required by PyWebView's Qt backend)
-    "PyQt6.QtWebEngineWidgets",
-    "PyQt6.QtWebEngineCore",
-    "PyQt6.QtNetwork",
-    "PyQt6.QtPrintSupport",
-]
+
+# Platform-specific WebView backend hidden imports.
+# Windows: use Edge WebView2 (edgechromium) — no pythonnet/clr needed.
+# Linux/macOS: use Qt WebEngine backend.
+if _sys.platform == "win32":
+    hiddenimports = [
+        "webview.platforms.edgechromium",
+    ]
+    excludes = [
+        # Exclude winforms backend and its pythonnet dependency — they are
+        # bundled by collect_all but crash in frozen builds on Windows.
+        "webview.platforms.winforms",
+        "clr",
+        "pythonnet",
+    ]
+else:
+    hiddenimports = [
+        # PyWebView Qt backend — dynamically imported at runtime
+        "webview.platforms.qt",
+        "qtpy",
+        # Qt WebEngine (required by PyWebView's Qt backend)
+        "PyQt6.QtWebEngineWidgets",
+        "PyQt6.QtWebEngineCore",
+        "PyQt6.QtNetwork",
+        "PyQt6.QtPrintSupport",
+    ]
+    excludes = []
 
 for package in ["manim", "manimpango", "pywebview"]:
     package_datas, package_binaries, package_hiddenimports = collect_all(package)
@@ -35,7 +53,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=excludes,
     noarchive=False,
     optimize=0,
 )
