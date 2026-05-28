@@ -1,8 +1,23 @@
 import sys, os, signal, runpy, atexit, threading
 
+# --run-manim subprocesses must NOT touch crash.log — they run as a child
+# process of the renderer with stdout=PIPE, and redirecting sys.stdout here
+# would (a) steal Manim's output away from the PIPE and (b) truncate the
+# main process's crash.log on every render.  Set up stdout→PIPE first, then
+# fall through to the early-exit in main().
+if getattr(sys, "frozen", False) and sys.platform == "win32" and "--run-manim" in sys.argv:
+    import io as _io
+    # fd 1 is the PIPE connected by the parent process; wrap it so print() works
+    sys.stdout = _io.TextIOWrapper(
+        _io.open(1, "wb", closefd=False),
+        encoding="utf-8", errors="replace", line_buffering=True,
+    )
+    sys.stderr = sys.stdout
+
 # console=False hides all output on Windows — write to ~/ManimStudio/crash.log
 # so launch failures are visible. Must come before any import that could fail.
-if getattr(sys, "frozen", False) and sys.platform == "win32":
+# Only for the main UI process (not --run-manim subprocesses, handled above).
+elif getattr(sys, "frozen", False) and sys.platform == "win32":
     _log_dir = os.path.join(os.path.expanduser("~"), "ManimStudio")
     os.makedirs(_log_dir, exist_ok=True)
     _log = open(os.path.join(_log_dir, "crash.log"), "w", buffering=1, encoding="utf-8")
@@ -31,9 +46,9 @@ if sys.platform == "win32":
 # bundle PyInstaller's Qt hook puts it at PyQt6/Qt6/bin/QtWebEngineProcess.exe
 # but Qt's default search may not find it without a qt.conf. Set the env var
 # so Qt locates it regardless of working directory.
-if getattr(sys, "frozen", False) and sys.platform == "win32":
+if getattr(sys, "frozen", False) and sys.platform == "win32" and "--run-manim" not in sys.argv:
     import glob as _glob, platform as _platform
-    print(f"ManimStudio starting — {_platform.platform()} — Python {sys.version}", flush=True)
+    print(f"ManimStudio starting -> {_platform.platform()} -> Python {sys.version}", flush=True)
     print(f"Bundle root: {sys._MEIPASS}", flush=True)
     _proc_hits = _glob.glob(
         os.path.join(sys._MEIPASS, "**", "QtWebEngineProcess.exe"),
@@ -80,9 +95,16 @@ def main():
         sys.exit(0)
 
     api = Api()
+    url = _ui_url(api)
+
+    if getattr(sys, "frozen", False) and sys.platform == "win32":
+        idx = os.path.join(sys._MEIPASS, "ui", "dist", "index.html")
+        print(f"index.html exists: {os.path.exists(idx)}", flush=True)
+        print(f"UI URL: {url}", flush=True)
+
     window = webview.create_window(
         title="Manim Studio",
-        url=_ui_url(api),
+        url=url,
         js_api=api,
         width=1400,
         height=860,
