@@ -1,37 +1,29 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-import sys as _sys
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 datas = []
 binaries = []
 
-# Platform-specific WebView backend hidden imports.
-# Windows: use Edge WebView2 (edgechromium) — no pythonnet/clr needed.
-# Linux/macOS: use Qt WebEngine backend.
-if _sys.platform == "win32":
-    hiddenimports = [
-        "webview.platforms.edgechromium",
-    ]
-    excludes = [
-        # Exclude winforms backend and its pythonnet dependency — they are
-        # bundled by collect_all but crash in frozen builds on Windows.
-        "webview.platforms.winforms",
-        "clr",
-        "pythonnet",
-    ]
-else:
-    hiddenimports = [
-        # PyWebView Qt backend — dynamically imported at runtime
-        "webview.platforms.qt",
-        "qtpy",
-        # Qt WebEngine (required by PyWebView's Qt backend)
-        "PyQt6.QtWebEngineWidgets",
-        "PyQt6.QtWebEngineCore",
-        "PyQt6.QtNetwork",
-        "PyQt6.QtPrintSupport",
-    ]
-    excludes = []
+# All platforms use pywebview's Qt backend (Qt WebEngine).
+# pywebview's Windows-native backends (edgechromium, winforms) both require
+# pythonnet/.NET interop which crashes in frozen PyInstaller builds.
+hiddenimports = [
+    "webview.platforms.qt",
+    "qtpy",
+    "PyQt6.QtWebEngineWidgets",
+    "PyQt6.QtWebEngineCore",
+    "PyQt6.QtNetwork",
+    "PyQt6.QtPrintSupport",
+]
+# Exclude .NET-dependent backends on all platforms — they are discovered by
+# collect_all but must never be imported in the frozen bundle.
+excludes = [
+    "webview.platforms.winforms",
+    "webview.platforms.edgechromium",
+    "clr",
+    "pythonnet",
+]
 
 for package in ["manim", "manimpango", "pywebview"]:
     package_datas, package_binaries, package_hiddenimports = collect_all(package)

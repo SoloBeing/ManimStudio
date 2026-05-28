@@ -61,22 +61,19 @@ def main():
     # PyWebView calls deleteLater() on the WebEnginePage then immediately exits
     # the event loop, so the deletion never runs before the profile destructor.
     # Suppress that specific Qt warning — it is a PyWebView bug, not ours.
-    # Only applicable on Linux (Qt backend); skip on Windows.
-    if sys.platform != "win32":
-        try:
-            from qtpy.QtCore import qInstallMessageHandler
-            def _qt_msg_handler(msg_type, context, message):
-                if 'WebEnginePage still not deleted' not in message:
-                    print(message, file=sys.stderr)
-            qInstallMessageHandler(_qt_msg_handler)
-        except Exception:
-            pass
+    try:
+        from qtpy.QtCore import qInstallMessageHandler
+        def _qt_msg_handler(msg_type, context, message):
+            if 'WebEnginePage still not deleted' not in message:
+                print(message, file=sys.stderr)
+        qInstallMessageHandler(_qt_msg_handler)
+    except Exception:
+        pass
 
-    # On Windows force edgechromium (Edge WebView2, pre-installed on Win10/11).
-    # Without this pywebview falls back to the winforms backend which requires
-    # pythonnet/Python.Runtime.dll and crashes in frozen PyInstaller bundles.
-    gui = "edgechromium" if sys.platform == "win32" else None
-    webview.start(debug="--debug" in sys.argv, gui=gui)
+    # Force Qt backend on all platforms — pywebview's Windows-native backends
+    # (edgechromium, winforms) both require pythonnet/.NET interop which
+    # crashes in frozen PyInstaller builds.
+    webview.start(debug="--debug" in sys.argv, gui="qt")
 
 
 if __name__ == "__main__":

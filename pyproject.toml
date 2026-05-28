@@ -7,9 +7,8 @@ requires-python = ">=3.13.4"
 dependencies = [
     "manim>=0.20.1",
     "pyinstaller>=6.20.0",
-    # Qt WebEngine backend — used on Linux/macOS; Windows uses Edge WebView2
-    "pyqt6>=6.11.0; sys_platform != 'win32'",
-    "pyqt6-webengine>=6.11.0; sys_platform != 'win32'",
+    "pyqt6>=6.11.0",
+    "pyqt6-webengine>=6.11.0",
     "pywebview>=6.2.1",
-    "qtpy>=2.4.3; sys_platform != 'win32'",
+    "qtpy>=2.4.3",
 ]
