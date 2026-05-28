@@ -64,6 +64,18 @@ def main():
     if "--run-manim" in sys.argv:
         sys.argv.remove("--run-manim")
         sys.argv[0] = "manim"
+        # Manim spawns ffmpeg (and LaTeX tools) via subprocess without
+        # CREATE_NO_WINDOW, which flashes cmd windows on Windows.
+        # Patch Popen here so every child process Manim creates is windowless.
+        if sys.platform == "win32":
+            import subprocess as _sp
+            _OrigPopen = _sp.Popen
+            class _NoCmdPopen(_OrigPopen):
+                def __init__(self, *a, **kw):
+                    kw.setdefault("creationflags", 0)
+                    kw["creationflags"] |= _sp.CREATE_NO_WINDOW
+                    super().__init__(*a, **kw)
+            _sp.Popen = _NoCmdPopen
         runpy.run_module("manim", run_name="__main__", alter_sys=True)
         sys.exit(0)
 

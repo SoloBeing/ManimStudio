@@ -152,6 +152,19 @@ export default function App() {
     return () => { window.__manimState = undefined; };
   }, []);
 
+  // Poll get_state() while rendering — evaluate_js from background threads is
+  // unreliable on Windows while the subprocess is running, so log lines are
+  // accumulated server-side and fetched here instead of pushed individually.
+  useEffect(() => {
+    if (status !== 'rendering') return;
+    const flush = () =>
+      getApi().get_state().then(s => {
+        if (s.logLines?.length) setLogLines(prev => [...prev, ...s.logLines!]);
+      });
+    const id = setInterval(flush, 500);
+    return () => { clearInterval(id); flush(); };
+  }, [status]);
+
   async function handleRender() {
     const handle = panelRef.current;
     if (!handle) return;

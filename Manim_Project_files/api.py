@@ -362,7 +362,6 @@ class Api:
     def _on_log(self, msg: str):
         with self._lock:
             self._log_lines.append(msg)
-        self._push({"status": "rendering", "logLine": msg})
 
     def _on_done(self, video_path: str):
         stem = self._thread.render_stem if self._thread else ""
