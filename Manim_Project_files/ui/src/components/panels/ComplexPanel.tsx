@@ -4,10 +4,11 @@ import { TextControls } from '../shared/TextControls';
 import { DEFAULT_TEXT } from '../../types';
 import type { PanelHandle, TextParams } from '../../types';
 
-const MODES = ['f(z) = z^2', 'f(z) = z^3 - 1', 'f(z) = 1/z', 'f(z) = e^z', 'Mobius Transform'];
+const MODES = ['f(z) = z^2', 'f(z) = z^3 - 1', 'f(z) = 1/z', 'f(z) = e^z', 'Mobius Transform', 'Custom'];
 
 export function ComplexPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
   const [mode, setMode] = useState(MODES[0]);
+  const [customFn, setCustomFn] = useState('z**2 + 0.5');
   const [reC, setReC] = useState(-0.5);
   const [imC, setImC] = useState(0.5);
   const [scale, setScale] = useState(2.0);
@@ -20,6 +21,7 @@ export function ComplexPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
       mode: 'complex',
       params: {
         mode, re_c: reC, im_c: imC, scale, n_pts: nPts, show_arrows: showArrows,
+        custom_fn: customFn,
         ...text,
       },
     }),
@@ -31,6 +33,23 @@ export function ComplexPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
       <select className="app-select" value={mode} onChange={e => setMode(e.target.value)}>
         {MODES.map(m => <option key={m}>{m}</option>)}
       </select>
+
+      {mode === 'Custom' && (
+        <div style={{ marginTop: 8 }}>
+          <div className="sec-hdr">f(z) =</div>
+          <input
+            className="app-input"
+            style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace' }}
+            value={customFn}
+            onChange={e => setCustomFn(e.target.value)}
+            placeholder="e.g. z**2 + 1"
+            spellCheck={false}
+          />
+          <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 4, lineHeight: 1.4 }}>
+            Variable: z (complex). Available: cmath, np
+          </div>
+        </div>
+      )}
 
       <div className="sec-sep" />
       <div className="sec-hdr">Parameters</div>

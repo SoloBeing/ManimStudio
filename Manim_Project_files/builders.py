@@ -1,3 +1,6 @@
+import ast as _ast
+from renderer import _BLOCKED_CALLS, _BLOCKED_ATTRS
+
 def _join(lines):
     return "\n".join(lines) + "\n"
 
@@ -253,6 +256,7 @@ def build_complex_source(
     text_content="", text_font_size=22, show_preset_labels=True,
     bold=False, italic=False, stroke_width=0, stroke_color="white",
     x_offset=0, y_offset=0, gradient="none",
+    custom_fn="z**2",
 ):
     pos_call, _, stack_dir = _text_position(text_position)
     txt_col    = _text_color(text_color)
@@ -271,7 +275,24 @@ def build_complex_source(
             f"(z - complex({re_c:.4f},{im_c:.4f}) + 1e-9j)"
         ),
     }
-    fn       = fn_map.get(mode, "z**2")
+    if mode == "Custom":
+        fn = (custom_fn or "z**2").strip()
+        try:
+            tree = _ast.parse(fn, mode="eval")
+        except SyntaxError as e:
+            raise ValueError(
+                f"Custom f(z) expression has invalid syntax: {e.msg} "
+                f"(use Python syntax, e.g. z**2, cmath.sin(z))"
+            ) from None
+        for node in _ast.walk(tree):
+            if isinstance(node, _ast.Call):
+                if isinstance(node.func, _ast.Name) and node.func.id in _BLOCKED_CALLS:
+                    raise ValueError(f"Call not allowed in f(z): {node.func.id}()")
+            elif isinstance(node, _ast.Attribute):
+                if node.attr in _BLOCKED_ATTRS:
+                    raise ValueError(f"Attribute not allowed in f(z): .{node.attr}")
+    else:
+        fn = fn_map.get(mode, "z**2")
     r_sample = min(float(scale) * 0.6, 1.8)
     n        = max(4, int(n_pts))
 
