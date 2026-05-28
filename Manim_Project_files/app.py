@@ -1,5 +1,11 @@
 import sys, os, signal, runpy, atexit, threading
 
+# Qt WebEngine sandbox is incompatible with frozen PyInstaller bundles on
+# Windows — the renderer subprocess can't locate its resources and shows a
+# white screen. Must be set before any Qt import occurs.
+if sys.platform == "win32":
+    os.environ.setdefault("QTWEBENGINE_DISABLE_SANDBOX", "1")
+
 import webview
 from api import Api
 
