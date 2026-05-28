@@ -5,7 +5,7 @@ import sys, os, signal, runpy, atexit, threading
 if getattr(sys, "frozen", False) and sys.platform == "win32":
     _log_dir = os.path.join(os.path.expanduser("~"), "ManimStudio")
     os.makedirs(_log_dir, exist_ok=True)
-    _log = open(os.path.join(_log_dir, "crash.log"), "w", buffering=1)
+    _log = open(os.path.join(_log_dir, "crash.log"), "w", buffering=1, encoding="utf-8")
     sys.stdout = _log
     sys.stderr = _log
 
@@ -41,7 +41,7 @@ if getattr(sys, "frozen", False) and sys.platform == "win32":
     )
     if _proc_hits:
         os.environ.setdefault("QTWEBENGINEPROCESS_PATH", _proc_hits[0])
-        print(f"QtWebEngineProcess.exe → {_proc_hits[0]}", flush=True)
+        print(f"QtWebEngineProcess.exe -> {_proc_hits[0]}", flush=True)
     else:
         print("WARNING: QtWebEngineProcess.exe not found in bundle", flush=True)
 
