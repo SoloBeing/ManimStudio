@@ -7,6 +7,17 @@ import builders
 
 _FPS_LIST = ["60", "30", "24", "15"]
 
+def _fs_to_url_path(path: str) -> str:
+    """Convert a filesystem path to a URL path component.
+
+    On Linux/macOS, os.path.abspath already starts with '/'.
+    On Windows it starts with 'C:\\...' — no leading slash and backslashes —
+    producing a malformed URL like 'http://host:portC:\\...'.
+    Fix: forward-slash the path and ensure a leading '/'.
+    """
+    p = os.path.abspath(path).replace("\\", "/")
+    return p if p.startswith("/") else "/" + p
+
 _LATEX_WARNED_FLAG  = os.path.join(os.path.expanduser("~"), "ManimStudio", "latex_warned")
 _RECENT_RENDERS_FILE = os.path.join(os.path.expanduser("~"), "ManimStudio", "recent_renders.json")
 
@@ -56,6 +67,17 @@ class Api:
         _allowed = self._allowed_dirs  # closure reference — stays live as list mutates
 
         class _RestrictedHandler(_SilentHandler):
+            if sys.platform == "win32":
+                def translate_path(self, path):
+                    # SimpleHTTPRequestHandler.translate_path with directory="/"
+                    # breaks on Windows: os.path.join("/", "C:") gives "C:" (relative)
+                    # not "C:\" (absolute). Handle drive-letter URLs directly.
+                    import urllib.parse, posixpath
+                    path = path.split('?', 1)[0].split('#', 1)[0]
+                    path = urllib.parse.unquote(path)
+                    path = posixpath.normpath(path).lstrip('/')
+                    return path.replace('/', os.sep)
+
             def _is_allowed(self) -> bool:
                 fs = os.path.abspath(self.translate_path(self.path))
                 return any(
@@ -293,7 +315,7 @@ class Api:
         if parent not in self._allowed_dirs:
             self._allowed_dirs.append(parent)
         is_image = abs_path.lower().endswith((".png", ".jpg", ".jpeg"))
-        return {"ok": True, "videoUrl": f"http://127.0.0.1:{self._http_port}{abs_path}", "isImage": is_image}
+        return {"ok": True, "videoUrl": f"http://127.0.0.1:{self._http_port}{_fs_to_url_path(abs_path)}", "isImage": is_image}
 
     # ------------------------------------------------------------------
     def cleanup(self):
@@ -362,13 +384,13 @@ class Api:
     def _video_url(self, path: str) -> str:
         if not path:
             return ""
-        return f"http://127.0.0.1:{self._http_port}{os.path.abspath(path)}"
+        return f"http://127.0.0.1:{self._http_port}{_fs_to_url_path(path)}"
 
     def ui_url(self, dist_index: str) -> str:
         dist_dir = os.path.abspath(os.path.dirname(dist_index))
         if dist_dir not in self._allowed_dirs:
             self._allowed_dirs.append(dist_dir)
-        return f"http://127.0.0.1:{self._http_port}{os.path.abspath(dist_index)}"
+        return f"http://127.0.0.1:{self._http_port}{_fs_to_url_path(dist_index)}"
 
     def _push(self, state: dict):
         if not self._window:

@@ -27,6 +27,24 @@ if getattr(sys, "frozen", False) and sys.platform == "win32":
 if sys.platform == "win32":
     os.environ.setdefault("QTWEBENGINE_DISABLE_SANDBOX", "1")
 
+# Windows: Qt WebEngine needs its subprocess exe. In a frozen PyInstaller
+# bundle PyInstaller's Qt hook puts it at PyQt6/Qt6/bin/QtWebEngineProcess.exe
+# but Qt's default search may not find it without a qt.conf. Set the env var
+# so Qt locates it regardless of working directory.
+if getattr(sys, "frozen", False) and sys.platform == "win32":
+    import glob as _glob, platform as _platform
+    print(f"ManimStudio starting — {_platform.platform()} — Python {sys.version}", flush=True)
+    print(f"Bundle root: {sys._MEIPASS}", flush=True)
+    _proc_hits = _glob.glob(
+        os.path.join(sys._MEIPASS, "**", "QtWebEngineProcess.exe"),
+        recursive=True,
+    )
+    if _proc_hits:
+        os.environ.setdefault("QTWEBENGINEPROCESS_PATH", _proc_hits[0])
+        print(f"QtWebEngineProcess.exe → {_proc_hits[0]}", flush=True)
+    else:
+        print("WARNING: QtWebEngineProcess.exe not found in bundle", flush=True)
+
 import webview
 from api import Api
 
