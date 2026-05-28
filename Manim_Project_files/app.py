@@ -1,5 +1,26 @@
 import sys, os, signal, runpy, atexit, threading
 
+# console=False hides all output on Windows — write to ~/ManimStudio/crash.log
+# so launch failures are visible. Must come before any import that could fail.
+if getattr(sys, "frozen", False) and sys.platform == "win32":
+    _log_dir = os.path.join(os.path.expanduser("~"), "ManimStudio")
+    os.makedirs(_log_dir, exist_ok=True)
+    _log = open(os.path.join(_log_dir, "crash.log"), "w", buffering=1)
+    sys.stdout = _log
+    sys.stderr = _log
+
+    def _win_excepthook(exc_type, exc_value, exc_tb):
+        import traceback, ctypes
+        tb = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+        print(tb, flush=True)
+        ctypes.windll.user32.MessageBoxW(
+            0,
+            f"ManimStudio failed to start.\n\nSee crash.log in:\n{_log_dir}\n\n{tb[:600]}",
+            "ManimStudio Error",
+            0x10,
+        )
+    sys.excepthook = _win_excepthook
+
 # Qt WebEngine sandbox is incompatible with frozen PyInstaller bundles on
 # Windows — the renderer subprocess can't locate its resources and shows a
 # white screen. Must be set before any Qt import occurs.
