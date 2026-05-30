@@ -27,7 +27,8 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-body { overflow: hidden; height: 100vh; }
+html { height: 100%; }
+body { overflow: hidden; height: 100%; }
 
 /* ── Global checkbox theme ───────────────────────────────────────────────── */
 input[type="checkbox"] {
@@ -64,7 +65,7 @@ input[type="checkbox"]:hover:not(:checked) {
 }
 
 #root {
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -371,6 +372,7 @@ input[type="checkbox"]:hover:not(:checked) {
 /* ── Main content area ──────────────────────────────────────────────────── */
 .main-content {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;

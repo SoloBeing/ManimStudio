@@ -74,6 +74,13 @@ export default function App() {
   }, [quality, fps, opengl]);
 
   useEffect(() => {
+    function cancelDrag() {
+      if (dragging.current) {
+        dragging.current = null;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    }
     function onMove(e: globalThis.MouseEvent) {
       if (dragging.current === 'sidebar') {
         const w = dragStartW.current + (e.clientX - dragStartX.current);
@@ -83,18 +90,19 @@ export default function App() {
         setBottomHeight(Math.max(60, Math.min(500, h)));
       }
     }
-    function onUp() {
-      if (dragging.current) {
-        dragging.current = null;
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-      }
+    function onResize() {
+      setSidebarWidth(w => Math.min(w, window.innerWidth - 400));
+      setBottomHeight(h => Math.min(h, window.innerHeight - 160));
     }
     document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    document.addEventListener('mouseup', cancelDrag);
+    window.addEventListener('blur', cancelDrag);
+    window.addEventListener('resize', onResize);
     return () => {
       document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('mouseup', cancelDrag);
+      window.removeEventListener('blur', cancelDrag);
+      window.removeEventListener('resize', onResize);
     };
   }, []);
 
@@ -280,7 +288,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {showCloseDialog && (
         <CloseDialog onSave={handleCloseSave} onDiscard={handleCloseDiscard} onCancel={handleCloseCancel} />
       )}
