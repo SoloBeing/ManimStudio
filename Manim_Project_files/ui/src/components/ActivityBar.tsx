@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { Mode } from '../types';
 
 interface ActivityBarProps {
@@ -18,7 +19,7 @@ const ITEMS: Array<{ mode: Mode; icon: string; label: string }> = [
   { mode: 'playground',  icon: '▶',   label: 'Play' },
 ];
 
-export function ActivityBar({ active, onChange }: ActivityBarProps) {
+export const ActivityBar = memo(function ActivityBar({ active, onChange }: ActivityBarProps) {
   return (
     <div className="activity-bar">
       {ITEMS.map(({ mode, icon, label }) => (
@@ -34,4 +35,4 @@ export function ActivityBar({ active, onChange }: ActivityBarProps) {
       ))}
     </div>
   );
-}
+});

@@ -63,6 +63,8 @@ class Api:
         # output dir changes or the UI dist path is registered via ui_url().
         self._allowed_dirs = [os.path.abspath(RENDERS_DIR)]
 
+        self._latex_missing = [t for t in ("latex", "dvisvgm") if not shutil.which(t)]
+
         self._http_port = _free_port()
         _allowed = self._allowed_dirs  # closure reference — stays live as list mutates
 
@@ -92,7 +94,7 @@ class Api:
                 super().do_HEAD()
 
         handler = lambda *a, **kw: _RestrictedHandler(*a, directory="/", **kw)
-        srv = http.server.HTTPServer(("127.0.0.1", self._http_port), handler)
+        srv = http.server.ThreadingHTTPServer(("127.0.0.1", self._http_port), handler)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
 
     # ------------------------------------------------------------------
@@ -107,7 +109,7 @@ class Api:
     # ------------------------------------------------------------------
 
     def get_system_info(self) -> dict:
-        missing = [t for t in ("latex", "dvisvgm") if not shutil.which(t)]
+        missing = self._latex_missing
         sys_name = platform.system()
         if sys_name == "Windows":
             install_cmd = "winget install TinyTeX-org.TinyTeX"

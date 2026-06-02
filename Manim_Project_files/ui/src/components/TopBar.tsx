@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { memo, useState, useRef, useEffect } from 'react';
 import type { SystemInfo, Preset, RecentRender } from '../types';
 import { SettingsPanel }      from './panels/SettingsPanel';
 import { PresetsPanel }       from './panels/PresetsPanel';
@@ -25,7 +25,7 @@ interface TopBarProps {
   onClearRecent: () => void;
 }
 
-export function TopBar({
+export const TopBar = memo(function TopBar({
   systemInfo, quality, fps, opengl, outputDir,
   onQualityChange, onFpsChange, onOpenglChange, onBrowseOutput,
   presets, onApplyPreset, onSavePreset, onDeletePreset,
@@ -102,7 +102,7 @@ export function TopBar({
       )}
     </div>
   );
-}
+});
 
 function MenuButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (

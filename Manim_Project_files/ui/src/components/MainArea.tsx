@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { RenderStatus } from '../types';
 
 interface MainAreaProps {
@@ -7,7 +8,7 @@ interface MainAreaProps {
   onDiscard: () => void;
 }
 
-export function MainArea({ status, videoUrl, onSave, onDiscard }: MainAreaProps) {
+export const MainArea = memo(function MainArea({ status, videoUrl, onSave, onDiscard }: MainAreaProps) {
   const hasPending = status === 'done' && !!videoUrl;
   const isImage    = videoUrl.toLowerCase().endsWith('.png');
 
@@ -61,4 +62,4 @@ export function MainArea({ status, videoUrl, onSave, onDiscard }: MainAreaProps)
       )}
     </div>
   );
-}
+});

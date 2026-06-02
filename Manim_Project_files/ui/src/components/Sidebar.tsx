@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import { memo, type RefObject } from 'react';
 import type { Mode, PanelHandle } from '../types';
 import { TrigPanel }         from './panels/TrigPanel';
 import { ComplexPanel }      from './panels/ComplexPanel';
@@ -29,7 +29,7 @@ interface SidebarProps {
   panelRef: RefObject<PanelHandle | null>;
 }
 
-export function Sidebar({ activeMode, panelRef }: SidebarProps) {
+export const Sidebar = memo(function Sidebar({ activeMode, panelRef }: SidebarProps) {
   return (
     <div className="sidebar">
       <div className="sidebar__title">{TITLES[activeMode]}</div>
@@ -47,4 +47,4 @@ export function Sidebar({ activeMode, panelRef }: SidebarProps) {
       </div>
     </div>
   );
-}
+});

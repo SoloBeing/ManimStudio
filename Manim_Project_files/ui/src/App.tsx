@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, useCallback, type MouseEvent } from 'react';
 import type { Mode, PanelHandle, RenderStatus, SystemInfo, Preset, RecentRender } from './types';
 import { ActivityBar } from './components/ActivityBar';
 import { Sidebar }     from './components/Sidebar';
@@ -68,6 +68,12 @@ export default function App() {
   const dragStartW  = useRef(0);
   const dragStartH  = useRef(0);
 
+  // Mirror layout state into refs so drag callbacks stay stable (empty deps)
+  const sidebarWidthRef = useRef(sidebarWidth);
+  sidebarWidthRef.current = sidebarWidth;
+  const bottomHeightRef = useRef(bottomHeight);
+  bottomHeightRef.current = bottomHeight;
+
   // Persist quality/fps/opengl on every change
   useEffect(() => {
     localStorage.setItem('manim_settings', JSON.stringify({ quality, fps, opengl }));
@@ -106,30 +112,30 @@ export default function App() {
     };
   }, []);
 
-  function startSidebarDrag(e: MouseEvent<HTMLDivElement>) {
+  const startSidebarDrag = useCallback((e: MouseEvent<HTMLDivElement>) => {
     dragging.current   = 'sidebar';
     dragStartX.current = e.clientX;
-    dragStartW.current = sidebarWidth;
+    dragStartW.current = sidebarWidthRef.current;
     document.body.style.cursor     = 'col-resize';
     document.body.style.userSelect = 'none';
     e.preventDefault();
-  }
+  }, []);
 
-  function startBottomDrag(e: MouseEvent<HTMLDivElement>) {
+  const startBottomDrag = useCallback((e: MouseEvent<HTMLDivElement>) => {
     dragging.current   = 'bottom';
     dragStartY.current = e.clientY;
-    dragStartH.current = bottomHeight;
+    dragStartH.current = bottomHeightRef.current;
     document.body.style.cursor     = 'row-resize';
     document.body.style.userSelect = 'none';
     e.preventDefault();
-  }
+  }, []);
 
   useEffect(() => {
     window.__manimState = (state) => {
       if (state.status)   setStatus(state.status);
       if (state.videoUrl !== undefined) setVideoUrl(state.videoUrl);
-      if (state.logLine)  setLogLines(prev => [...prev, state.logLine!]);
-      if (state.logLines?.length) setLogLines(prev => [...prev, ...state.logLines!]);
+      if (state.logLine)  setLogLines(prev => [...prev, state.logLine!].slice(-500));
+      if (state.logLines?.length) setLogLines(prev => [...prev, ...state.logLines!].slice(-500));
       if (state.showCloseDialog)  setShowCloseDialog(true);
     };
 
@@ -160,20 +166,39 @@ export default function App() {
     return () => { window.__manimState = undefined; };
   }, []);
 
-  // Poll get_state() while rendering — evaluate_js from background threads is
-  // unreliable on Windows while the subprocess is running, so log lines are
-  // accumulated server-side and fetched here instead of pushed individually.
+  // Poll get_state() while rendering with adaptive back-off:
+  // 500ms → 1s → 2s on consecutive empty polls; resets to 500ms when lines arrive.
+  // Reduces IPC pressure when Manim is in a quiet computation phase.
   useEffect(() => {
     if (status !== 'rendering') return;
-    const flush = () =>
+    let delay = 500;
+    let emptyStreak = 0;
+    let timerId: ReturnType<typeof setTimeout>;
+
+    const flush = () => {
       getApi().get_state().then(s => {
-        if (s.logLines?.length) setLogLines(prev => [...prev, ...s.logLines!]);
+        if (s.logLines?.length) {
+          setLogLines(prev => [...prev, ...s.logLines!].slice(-500));
+          emptyStreak = 0;
+          delay = 500;
+        } else {
+          emptyStreak++;
+          if (emptyStreak >= 2) delay = Math.min(delay * 2, 2000);
+        }
+        timerId = setTimeout(flush, delay);
       });
-    const id = setInterval(flush, 500);
-    return () => { clearInterval(id); flush(); };
+    };
+
+    timerId = setTimeout(flush, delay);
+    return () => {
+      clearTimeout(timerId);
+      getApi().get_state().then(s => {
+        if (s.logLines?.length) setLogLines(prev => [...prev, ...s.logLines!].slice(-500));
+      });
+    };
   }, [status]);
 
-  async function handleRender() {
+  const handleRender = useCallback(async () => {
     const handle = panelRef.current;
     if (!handle) return;
     const { mode, params, sceneName } = handle.getParams();
@@ -188,13 +213,13 @@ export default function App() {
       setLogLines(prev => [...prev, `[ERROR] ${result.error}`]);
       setStatus('error');
     }
-  }
+  }, [quality, fps, opengl]);
 
-  async function handleStop() {
+  const handleStop = useCallback(async () => {
     await getApi().stop_render();
-  }
+  }, []);
 
-  async function handleSave() {
+  const handleSave = useCallback(async () => {
     const result = await getApi().save_render();
     if (result.ok && result.path && renderMetaRef.current) {
       const { mode, quality: q, fps: f } = renderMetaRef.current;
@@ -210,69 +235,67 @@ export default function App() {
     } else if (!result.ok && result.error !== 'Cancelled') {
       setLogLines(prev => [...prev, `[WARN] Save failed: ${result.error}`]);
     }
-  }
+  }, []);
 
-  async function handleDiscard() {
+  const handleDiscard = useCallback(async () => {
     await getApi().discard_render();
     setVideoUrl('');
     setStatus('idle');
-  }
+  }, []);
 
-  async function handleCloseSave() {
+  const handleCloseSave = useCallback(async () => {
     setShowCloseDialog(false);
     await getApi().save_render();
     await getApi().confirm_close();
-  }
+  }, []);
 
-  async function handleCloseDiscard() {
+  const handleCloseDiscard = useCallback(async () => {
     setShowCloseDialog(false);
     await getApi().discard_render();
     await getApi().confirm_close();
-  }
+  }, []);
 
-  function handleCloseCancel() {
+  const handleCloseCancel = useCallback(() => {
     setShowCloseDialog(false);
-  }
+  }, []);
 
-  async function handleBrowseOutput() {
+  const handleBrowseOutput = useCallback(async () => {
     const chosen = await getApi().browse_output_dir();
     if (chosen) setOutputDir(chosen);
-  }
+  }, []);
 
-  async function handleLatexDismiss(dontShowAgain: boolean) {
+  const handleLatexDismiss = useCallback(async (dontShowAgain: boolean) => {
     if (dontShowAgain) await getApi().dismiss_latex_warning();
     setLatexDialog(null);
-  }
+  }, []);
 
-  function handleLatexNotice() {
+  const handleLatexNotice = useCallback(() => {
     const info = systemInfo;
     if (info && info.latexMissing.length > 0) {
       setLatexDialog({ missing: info.latexMissing, installCmd: info.latexInstallCmd, withDontShow: false });
     }
-  }
+  }, [systemInfo]);
 
-  // Preset management
-  function handleSavePreset(name: string) {
+  const handleSavePreset = useCallback((name: string) => {
     const p: Preset = { id: crypto.randomUUID(), name, quality, fps, opengl };
     const next = [p, ...presets];
     setPresets(next);
     localStorage.setItem('manim_presets', JSON.stringify(next));
-  }
+  }, [quality, fps, opengl, presets]);
 
-  function handleDeletePreset(id: string) {
+  const handleDeletePreset = useCallback((id: string) => {
     const next = presets.filter(p => p.id !== id);
     setPresets(next);
     localStorage.setItem('manim_presets', JSON.stringify(next));
-  }
+  }, [presets]);
 
-  function handleApplyPreset(p: Preset) {
+  const handleApplyPreset = useCallback((p: Preset) => {
     setQuality(p.quality);
     setFps(p.fps);
     setOpengl(p.opengl);
-  }
+  }, []);
 
-  // Recent renders
-  async function handleLoadRender(r: RecentRender) {
+  const handleLoadRender = useCallback(async (r: RecentRender) => {
     const result = await getApi().load_render(r.path);
     if (result.ok && result.videoUrl) {
       setVideoUrl(result.videoUrl);
@@ -280,12 +303,12 @@ export default function App() {
     } else {
       setLogLines(prev => [...prev, `[WARN] Could not load: ${result.error ?? 'File not found'}`]);
     }
-  }
+  }, []);
 
-  async function handleClearRecent() {
+  const handleClearRecent = useCallback(async () => {
     await getApi().clear_recent_renders();
     setRecentRenders([]);
-  }
+  }, []);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>

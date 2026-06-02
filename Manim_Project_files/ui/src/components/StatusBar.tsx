@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { RenderStatus, SystemInfo } from '../types';
 
 interface StatusBarProps {
@@ -24,7 +25,7 @@ const STATUS_CLASS: Record<RenderStatus, string> = {
   stopped:   '',
 };
 
-export function StatusBar({ status, systemInfo, onRender, onStop, onLatexNotice }: StatusBarProps) {
+export const StatusBar = memo(function StatusBar({ status, systemInfo, onRender, onStop, onLatexNotice }: StatusBarProps) {
   const isRendering = status === 'rendering';
 
   return (
@@ -60,4 +61,4 @@ export function StatusBar({ status, systemInfo, onRender, onStop, onLatexNotice 
       </button>
     </div>
   );
-}
+});

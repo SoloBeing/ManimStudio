@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { memo, useEffect, useRef, useState, type MouseEvent } from 'react';
 
 interface BottomPanelProps {
   lines: string[];
@@ -14,14 +14,17 @@ function lineClass(line: string): string {
   return 'log-line';
 }
 
-export function BottomPanel({ lines, logHeight, onResizeStart }: BottomPanelProps) {
+export const BottomPanel = memo(function BottomPanel({ lines, logHeight, onResizeStart }: BottomPanelProps) {
   const [open, setOpen] = useState(true);
   const logRef = useRef<HTMLDivElement>(null);
 
+  // requestAnimationFrame defers the scroll until after the browser paints,
+  // avoiding a forced synchronous layout reflow on every log line addition.
   useEffect(() => {
-    if (open && logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight;
-    }
+    if (!open || !logRef.current) return;
+    const el = logRef.current;
+    const id = requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+    return () => cancelAnimationFrame(id);
   }, [lines, open]);
 
   return (
@@ -46,4 +49,4 @@ export function BottomPanel({ lines, logHeight, onResizeStart }: BottomPanelProp
       )}
     </div>
   );
-}
+});
