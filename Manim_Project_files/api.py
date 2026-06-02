@@ -2,7 +2,10 @@ import sys, os, re, json, shutil, threading, http.server, socket, platform
 
 import webview
 
-from renderer import QUALITY, RENDERS_DIR, RenderThread, validate_playground_source
+from renderer import (
+    QUALITY, RENDERS_DIR, RenderThread, validate_playground_source,
+    get_worker, shutdown_worker,
+)
 import builders
 
 _FPS_LIST = ["60", "30", "24", "15"]
@@ -106,6 +109,18 @@ class Api:
         handler = lambda *a, **kw: _RestrictedHandler(*a, directory="/", **kw)
         srv = http.server.ThreadingHTTPServer(("127.0.0.1", self._http_port), handler)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+        # Pre-warm the Manim worker in the background so the ~1s+ import cost is
+        # paid before the first render (POSIX only; Windows uses the cold path).
+        threading.Thread(target=self._prewarm_worker, daemon=True).start()
+
+    def _prewarm_worker(self):
+        try:
+            w = get_worker()
+            if w is not None:
+                w.ensure_started()
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Called by app.py after window creation
@@ -341,6 +356,10 @@ class Api:
             t.stop()
             t.join(timeout=5)
         self._cleanup_render_artifacts(stem)
+        try:
+            shutdown_worker()
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Internal

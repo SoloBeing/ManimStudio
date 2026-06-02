@@ -60,6 +60,15 @@ if getattr(sys, "frozen", False) and sys.platform == "win32" and "--run-manim" n
     else:
         print("WARNING: QtWebEngineProcess.exe not found in bundle", flush=True)
 
+# Warm Manim worker (POSIX). Short-circuit BEFORE importing webview/Qt so the
+# worker stays a clean, fork-safe process that only imports manim. Launched as
+# `sys.executable --warm-worker` from frozen builds (renderer uses a -c command
+# in dev). Never reached on Windows — get_worker() returns None there.
+if "--warm-worker" in sys.argv:
+    from renderer import worker_main
+    worker_main()
+    sys.exit(0)
+
 import webview
 from api import Api
 
