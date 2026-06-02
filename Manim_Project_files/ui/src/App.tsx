@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo, type CSSProperties, type MouseEvent } from 'react';
 import type { Mode, PanelHandle, RenderStatus, SystemInfo, Preset, RecentRender } from './types';
 import { ActivityBar } from './components/ActivityBar';
 import { Sidebar }     from './components/Sidebar';
@@ -41,6 +41,9 @@ function loadPresets(): Preset[] {
   catch { return []; }
 }
 
+// Static style — hoisted so it isn't reallocated on every render (e.g. each log poll).
+const ROOT_STYLE: CSSProperties = { height: '100%', display: 'flex', flexDirection: 'column' };
+
 export default function App() {
   const [activeMode, setActiveMode] = useState<Mode>('trig');
   const [status, setStatus]         = useState<RenderStatus>('idle');
@@ -73,6 +76,13 @@ export default function App() {
   sidebarWidthRef.current = sidebarWidth;
   const bottomHeightRef = useRef(bottomHeight);
   bottomHeightRef.current = bottomHeight;
+
+  // Memoized so it only reallocates when the width actually changes (during a
+  // drag), not on every unrelated re-render such as a log poll.
+  const sidebarStyle = useMemo<CSSProperties>(
+    () => ({ width: sidebarWidth, flexShrink: 0, overflow: 'hidden', display: 'flex' }),
+    [sidebarWidth],
+  );
 
   // Persist quality/fps/opengl on every change
   useEffect(() => {
@@ -311,7 +321,7 @@ export default function App() {
   }, []);
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div style={ROOT_STYLE}>
       {showCloseDialog && (
         <CloseDialog onSave={handleCloseSave} onDiscard={handleCloseDiscard} onCancel={handleCloseCancel} />
       )}
@@ -333,7 +343,7 @@ export default function App() {
 
       <div className="app-body">
         <ActivityBar active={activeMode} onChange={setActiveMode} />
-        <div style={{ width: sidebarWidth, flexShrink: 0, overflow: 'hidden', display: 'flex' }}>
+        <div style={sidebarStyle}>
           <Sidebar activeMode={activeMode} panelRef={panelRef} />
         </div>
         <div className="resize-handle resize-handle--vertical" onMouseDown={startSidebarDrag} />

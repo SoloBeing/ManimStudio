@@ -81,17 +81,27 @@ class Api:
                     return path.replace('/', os.sep)
 
             def _is_allowed(self) -> bool:
+                # Every entry in _allowed is stored already-absolute (see Api
+                # __init__, browse_output_dir, ui_url, load_render), so there's
+                # no need to re-abspath each one on every request.
                 fs = os.path.abspath(self.translate_path(self.path))
-                return any(
-                    fs == os.path.abspath(d) or fs.startswith(os.path.abspath(d) + os.sep)
-                    for d in _allowed
-                )
+                return any(fs == d or fs.startswith(d + os.sep) for d in _allowed)
             def do_GET(self):
                 if not self._is_allowed(): self.send_error(403); return
                 super().do_GET()
             def do_HEAD(self):
                 if not self._is_allowed(): self.send_error(403); return
                 super().do_HEAD()
+            def send_response(self, code, message=None):
+                self._status_code = code
+                super().send_response(code, message)
+            def end_headers(self):
+                # Let the browser cache served media so replay/scrubbing (Range
+                # requests) doesn't refetch from disk each time. Only on success
+                # responses — never cache a 403/404.
+                if getattr(self, "_status_code", None) in (200, 206, 304):
+                    self.send_header("Cache-Control", "max-age=600")
+                super().end_headers()
 
         handler = lambda *a, **kw: _RestrictedHandler(*a, directory="/", **kw)
         srv = http.server.ThreadingHTTPServer(("127.0.0.1", self._http_port), handler)
