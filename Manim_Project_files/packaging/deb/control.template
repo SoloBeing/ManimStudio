@@ -1,0 +1,18 @@
+Package: manimstudio
+Version: @VERSION@
+Section: graphics
+Priority: optional
+Architecture: amd64
+Maintainer: Abhishek <streakundertaker482@gmail.com>
+Installed-Size: @SIZE@
+Depends: ffmpeg, libnss3, libgbm1, libxcb-cursor0
+Recommends: texlive-latex-base, texlive-latex-extra, texlive-fonts-recommended, dvisvgm
+Description: Manim Studio - visual editor for Manim animations
+ A desktop GUI for creating mathematical animations with Manim. Provides
+ panels for trigonometry, complex planes, linear algebra, geometry, bar
+ charts, 3D surfaces, number lines, and a Python playground, rendered
+ through a warm Manim worker for fast turnaround.
+ .
+ LaTeX (texlive + dvisvgm) is recommended for MathTex/Tex and coordinate
+ labels and is pulled in by default; plain Text() animations work without
+ it. Install with --no-install-recommends to skip LaTeX.

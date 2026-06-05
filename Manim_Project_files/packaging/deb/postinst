@@ -1,0 +1,25 @@
+#!/bin/sh
+# postinst — runs after files are unpacked. Refreshes desktop/icon caches so
+# the launcher appears immediately, and nudges the user about LaTeX if it's
+# absent (the app's preflight guard blocks MathTex/Tex renders without it).
+set -e
+
+case "$1" in
+  configure)
+    if command -v update-desktop-database >/dev/null 2>&1; then
+      update-desktop-database -q /usr/share/applications || true
+    fi
+    if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+      gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
+    fi
+
+    if ! command -v latex >/dev/null 2>&1 || ! command -v dvisvgm >/dev/null 2>&1; then
+      echo "ManimStudio: LaTeX not detected. MathTex/Tex and coordinate labels"
+      echo "  need it. To enable math rendering:"
+      echo "    sudo apt install texlive-latex-base texlive-latex-extra dvisvgm"
+      echo "  Plain Text() animations work without LaTeX."
+    fi
+    ;;
+esac
+
+exit 0

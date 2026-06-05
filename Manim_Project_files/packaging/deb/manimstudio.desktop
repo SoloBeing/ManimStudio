@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Manim Studio
+GenericName=Animation Editor
+Comment=Create mathematical animations with Manim
+Exec=/opt/manimstudio/ManimStudio %U
+Icon=manimstudio
+Terminal=false
+Categories=Graphics;Education;Science;Development;
+Keywords=manim;animation;math;render;video;
+StartupNotify=true
+StartupWMClass=ManimStudio
