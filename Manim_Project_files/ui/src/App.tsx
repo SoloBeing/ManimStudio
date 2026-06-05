@@ -21,7 +21,7 @@ function getApi() {
       fpsList: ['60', '30', '24', '15'],
       httpPort: 8080,
     }),
-    render: async (): Promise<{ ok: boolean; error?: string }> => ({ ok: true }),
+    render: async (): Promise<{ ok: boolean; error?: string; latexRequired?: boolean; latexMissing?: string[]; latexInstallCmd?: string }> => ({ ok: true }),
     stop_render: async () => ({ ok: true }),
     get_state: async () => ({ status: 'idle' as RenderStatus, logLines: [], videoPending: false, videoUrl: '', outputDir: '' }),
     browse_output_dir: async () => '',
