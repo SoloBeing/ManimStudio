@@ -76,7 +76,13 @@ export interface PyWebViewApi {
     quality?: string,
     fps?: string,
     opengl?: boolean,
-  ) => Promise<{ ok: boolean; error?: string }>;
+  ) => Promise<{
+    ok: boolean;
+    error?: string;
+    latexRequired?: boolean;
+    latexMissing?: string[];
+    latexInstallCmd?: string;
+  }>;
   stop_render: () => Promise<{ ok: boolean }>;
   get_state: () => Promise<{
     status: RenderStatus;

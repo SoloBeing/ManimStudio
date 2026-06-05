@@ -220,10 +220,21 @@ export default function App() {
       mode, JSON.stringify(params), sceneName ?? '', quality, fps.split(' ')[0], opengl,
     );
     if (!result.ok) {
-      setLogLines(prev => [...prev, `[ERROR] ${result.error}`]);
-      setStatus('error');
+      if (result.latexRequired) {
+        // Nothing actually rendered — this is a preflight block, not an error.
+        setStatus('idle');
+        setLogLines(prev => [...prev, `[BLOCKED] ${result.error}`]);
+        setLatexDialog({
+          missing:    result.latexMissing ?? systemInfo?.latexMissing ?? ['latex'],
+          installCmd: result.latexInstallCmd ?? systemInfo?.latexInstallCmd ?? '',
+          withDontShow: false,
+        });
+      } else {
+        setLogLines(prev => [...prev, `[ERROR] ${result.error}`]);
+        setStatus('error');
+      }
     }
-  }, [quality, fps, opengl]);
+  }, [quality, fps, opengl, systemInfo]);
 
   const handleStop = useCallback(async () => {
     await getApi().stop_render();

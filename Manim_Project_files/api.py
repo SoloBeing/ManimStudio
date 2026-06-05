@@ -24,6 +24,37 @@ def _fs_to_url_path(path: str) -> str:
 _LATEX_WARNED_FLAG  = os.path.join(os.path.expanduser("~"), "ManimStudio", "latex_warned")
 _RECENT_RENDERS_FILE = os.path.join(os.path.expanduser("~"), "ManimStudio", "recent_renders.json")
 
+# Manim objects/methods that render text through LaTeX (latex + dvisvgm). A
+# scene using any of these will fail at render time if LaTeX isn't installed,
+# so we preflight the generated source for them. Plain Text()/MarkupText() use
+# Pango and need no LaTeX, so they're intentionally absent. Word boundaries
+# keep Text/MarkupText from matching the bare "Tex" token.
+_LATEX_TOKENS = (
+    "MathTex", "Tex", "SingleStringMathTex",
+    "DecimalNumber", "Integer", "Variable", "Title",
+    "Matrix", "IntegerMatrix", "DecimalMatrix",
+    "BraceLabel", "BraceText",
+    "MathTable", "IntegerTable", "DecimalTable",
+    "add_coordinates", "add_numbers",
+    "get_axis_labels", "get_axis_label",
+    "get_x_axis_label", "get_y_axis_label", "get_graph_label",
+)
+_LATEX_RE = re.compile(r"\b(?:" + "|".join(_LATEX_TOKENS) + r")\b")
+
+
+def _source_needs_latex(source: str) -> bool:
+    """True if the generated Manim source uses any LaTeX-rendered construct."""
+    return bool(_LATEX_RE.search(source or ""))
+
+
+def _latex_install_cmd() -> str:
+    sys_name = platform.system()
+    if sys_name == "Windows":
+        return "winget install TinyTeX-org.TinyTeX"
+    if sys_name == "Darwin":
+        return 'curl -sL "https://yihui.org/tinytex/install-bin-unix.sh" | sh'
+    return 'wget -qO- "https://yihui.org/tinytex/install-bin-unix.sh" | sh'
+
 _BUILDERS = {
     "trig":        builders.build_trig_source,
     "complex":     builders.build_complex_source,
@@ -135,17 +166,10 @@ class Api:
 
     def get_system_info(self) -> dict:
         missing = self._latex_missing
-        sys_name = platform.system()
-        if sys_name == "Windows":
-            install_cmd = "winget install TinyTeX-org.TinyTeX"
-        elif sys_name == "Darwin":
-            install_cmd = 'curl -sL "https://yihui.org/tinytex/install-bin-unix.sh" | sh'
-        else:
-            install_cmd = 'wget -qO- "https://yihui.org/tinytex/install-bin-unix.sh" | sh'
         return {
             "latexOk":           len(missing) == 0,
             "latexMissing":      missing,
-            "latexInstallCmd":   install_cmd,
+            "latexInstallCmd":   _latex_install_cmd(),
             "latexWarnedBefore": os.path.exists(_LATEX_WARNED_FLAG),
             "outputDir":         self._output_dir,
             "qualities":         list(QUALITY.keys()),
@@ -195,6 +219,19 @@ class Api:
                 source = builder(**params)
             except Exception as e:
                 return {"ok": False, "error": f"Build error: {e}"}
+
+        # Preflight: a scene using MathTex/Tex/coordinates needs LaTeX. Block it
+        # up front (rather than letting Manim fail mid-render) so the UI can show
+        # the install instructions instead of a cryptic LaTeX traceback.
+        if self._latex_missing and _source_needs_latex(source):
+            return {
+                "ok":              False,
+                "latexRequired":   True,
+                "latexMissing":    self._latex_missing,
+                "latexInstallCmd": _latex_install_cmd(),
+                "error":           "This animation uses LaTeX (MathTex/Tex/coordinate "
+                                   "labels), but LaTeX is not installed.",
+            }
 
         flags = list(QUALITY.get(quality, QUALITY["Med  720p"]))
         flags += ["--fps", fps_val]
