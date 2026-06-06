@@ -20,6 +20,14 @@ const SHAPES = [
 const ANIMS = [
   'Create', 'DrawBorderThenFill', 'FadeIn',
   'GrowFromCenter', 'SpinInFromNothing', 'FadeInFromLarge', 'Write',
+  'SpiralIn', 'ShowIncreasingSubsets',
+];
+
+const ARRANGEMENTS = [
+  ['Row',    'row'],
+  ['Column', 'column'],
+  ['Grid',   'grid'],
+  ['Circle', 'circle'],
 ];
 
 const COLORS = [
@@ -48,6 +56,8 @@ export function GeometryPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
   const [strokeWidth, setStrokeWidth]= useState(3.0);
   const [anim, setAnim]              = useState('DrawBorderThenFill');
   const [camZoom, setCamZoom]        = useState(1.0);
+  const [count, setCount]            = useState(1);
+  const [arrangement, setArrangement]= useState('row');
   const [text, setText]              = useState<TextParams>({ ...DEFAULT_TEXT });
 
   useImperativeHandle(ref, () => ({
@@ -56,7 +66,7 @@ export function GeometryPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
       params: {
         shape, size, shape_fill_color: fillColor, shape_stroke_color: strokeColor,
         fill_opacity: fillOpacity, shape_stroke_width: strokeWidth,
-        anim, cam_zoom: camZoom,
+        anim, cam_zoom: camZoom, count, arrangement,
         ...text,
       },
     }),
@@ -101,6 +111,23 @@ export function GeometryPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
       <select className="app-select" value={anim} onChange={e => setAnim(e.target.value)}>
         {ANIMS.map(a => <option key={a}>{a}</option>)}
       </select>
+
+      <div className="sec-sep" />
+      <div className="sec-hdr">Multiple Shapes</div>
+      <Knob label="Count" min={1} max={8} value={count} onChange={v => setCount(Math.round(v))} decimals={0} step={1} />
+      {count > 1 && (
+        <>
+          <div className="field-row" style={{ marginTop: 4 }}>
+            <label>Layout</label>
+            <select className="app-select" value={arrangement} onChange={e => setArrangement(e.target.value)}>
+              {ARRANGEMENTS.map(([l, v]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 4, lineHeight: 1.4 }}>
+            Copies are auto-coloured across a rainbow palette.
+          </div>
+        </>
+      )}
 
       <div className="sec-sep" />
       <div className="sec-hdr">Camera</div>

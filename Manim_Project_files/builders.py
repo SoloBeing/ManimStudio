@@ -256,7 +256,7 @@ def build_complex_source(
     text_content="", text_font_size=22, show_preset_labels=True,
     bold=False, italic=False, stroke_width=0, stroke_color="white",
     x_offset=0, y_offset=0, gradient="none",
-    custom_fn="z**2",
+    custom_fn="z**2", cam_zoom=1.0, anim_style="vectors",
 ):
     pos_call, _, stack_dir = _text_position(text_position)
     txt_col    = _text_color(text_color)
@@ -304,6 +304,15 @@ def build_complex_source(
         "import numpy as np",
         "import cmath",
         "",
+    ]
+    zoom_f = float(cam_zoom or 1.0)
+    if abs(zoom_f - 1.0) > 0.02:
+        L += [
+            f"config.frame_width  = {14.222 / zoom_f:.3f}",
+            f"config.frame_height = {8.0    / zoom_f:.3f}",
+            "",
+        ]
+    L += [
         "class ManimScene(Scene):",
         "    def construct(self):",
         "        plane = ComplexPlane(",
@@ -359,9 +368,14 @@ def build_complex_source(
         "        self.play(FadeIn(in_dots), run_time=0.8)",
         f"        if {str(show_arrows).title()}:",
         "            self.play(Create(arrs), run_time=1.8)",
-        "        self.play(FadeIn(out_dots), run_time=0.8)",
-        "        self.wait(1.5)",
     ]
+    if str(anim_style or "vectors").strip().lower() == "morph":
+        # Animate copies of the input dots travelling to their image points,
+        # leaving the input ring in place and the mapped ring revealed.
+        L.append("        self.play(TransformFromCopy(in_dots, out_dots), run_time=2.0)")
+    else:
+        L.append("        self.play(FadeIn(out_dots), run_time=0.8)")
+    L.append("        self.wait(1.5)")
     return _join(L)
 
 
@@ -900,12 +914,14 @@ _SHAPE_ANIMS = {
     "SpinInFromNothing": ("SpinInFromNothing(obj)", 1.8),
     "FadeInFromLarge":   ("FadeInFromLarge(obj)", 1.5),
     "Write":             ("Write(obj)", 2.0),
+    "SpiralIn":          ("SpiralIn(obj)", 2.0),
+    "ShowIncreasingSubsets": ("ShowIncreasingSubsets(obj)", 2.0),
 }
 
 
 def build_geometry_source(
     shape, size, shape_fill_color, shape_stroke_color, fill_opacity,
-    shape_stroke_width, anim, cam_zoom=1.0,
+    shape_stroke_width, anim, cam_zoom=1.0, count=1, arrangement="row",
     text_position="top_left", text_color="white", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
     bold=False, italic=False, stroke_width=0, stroke_color="white",
@@ -942,8 +958,13 @@ def build_geometry_source(
         "annulus":     f"        obj = Annulus(inner_radius={s*0.35:.2f}, outer_radius={s:.2f}, {base_kw})",
     }.get(shape_lower, f"        obj = Circle(radius={s:.2f}, {base_kw})")
 
+    n_shapes = max(1, min(8, int(count or 1)))
+    arr      = str(arrangement or "row").strip().lower()
+
     anim_call, anim_rt = _SHAPE_ANIMS.get(str(anim or "Create"), ("Create(obj)", 1.5))
-    if shape_lower in ("arrow", "doublearrow") and str(anim or "") in ("Create", "GrowFromCenter", "Write"):
+    # GrowArrow only accepts a single Arrow — skip the override for multi-shape groups.
+    if n_shapes == 1 and shape_lower in ("arrow", "doublearrow") \
+            and str(anim or "") in ("Create", "GrowFromCenter", "Write"):
         anim_call, anim_rt = "GrowArrow(obj)", 1.2
 
     L = ["from manim import *", ""]
@@ -959,6 +980,29 @@ def build_geometry_source(
         "    def construct(self):",
         shape_code,
     ]
+
+    if n_shapes > 1:
+        # Replicate the base shape into a colour-cycled VGroup, then lay it out.
+        L += [
+            f"        obj = VGroup(*[obj.copy() for _ in range({n_shapes})])",
+            f"        _pal = color_gradient([BLUE, TEAL, GREEN, YELLOW, ORANGE, RED, PURPLE], {n_shapes})",
+            "        for _i, _m in enumerate(obj):",
+            "            _m.set_color(_pal[_i])",
+        ]
+        if arr == "circle":
+            L += [
+                "        for _i, _m in enumerate(obj):",
+                "            _m.move_to(RIGHT * 2.3)",
+                f"            _m.rotate(TAU * _i / {n_shapes}, about_point=ORIGIN)",
+            ]
+        elif arr == "column":
+            L.append("        obj.arrange(DOWN, buff=0.4)")
+        elif arr == "grid":
+            L.append("        obj.arrange_in_grid(buff=0.45)")
+        else:  # row
+            L.append("        obj.arrange(RIGHT, buff=0.45)")
+        # Shrink (never enlarge) to keep the group inside the frame.
+        L.append("        obj.scale(min(1.0, 12.0 / max(obj.width, 0.1), 6.5 / max(obj.height, 0.1)))")
 
     if text_content:
         _place_custom_lbl(L, text_content, font, fs, txt_col, bold, italic,
@@ -989,6 +1033,7 @@ def build_barchart_source(
     bar_labels, bar_values, bar_colors,
     auto_y=True, y_min=0, y_max=30, y_step=5,
     animate=True, show_labels=True,
+    x_label="", y_label="", bar_width=0.6,
     text_position="top_left", text_color="white", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
     bold=False, italic=False, stroke_width=0, stroke_color="white",
@@ -1027,6 +1072,9 @@ def build_barchart_source(
         hi = lo + 10
 
     colors_str = f"[{', '.join(manim_colors)}]"
+    bw = max(0.1, min(1.0, float(bar_width if bar_width is not None else 0.6)))
+    xlab = str(x_label or "").strip()[:48]
+    ylab = str(y_label or "").strip()[:48]
 
     L = [
         "from manim import *",
@@ -1038,10 +1086,17 @@ def build_barchart_source(
         f"            bar_names={labels!r},",
         f"            y_range=[{lo:.1f}, {hi:.1f}, {st:.1f}],",
         f"            bar_colors={colors_str},",
+        f"            bar_width={bw:.2f},",
         "            x_length=8, y_length=5,",
         "            axis_config=dict(color=GREY_B),",
         "        )",
     ]
+
+    # Axis titles use Text() (Pango) — never Tex — so they don't pull in LaTeX.
+    if xlab:
+        L.append(f"        x_axis_lbl = Text({xlab!r}, font_size=24, color=WHITE).next_to(chart.x_axis, DOWN, buff=0.35)")
+    if ylab:
+        L.append(f"        y_axis_lbl = Text({ylab!r}, font_size=24, color=WHITE).rotate(PI/2).next_to(chart.y_axis, LEFT, buff=0.35)")
 
     if show_labels:
         L.append("        bar_lbl = chart.get_bar_labels(font_size=20, color=WHITE)")
@@ -1059,6 +1114,8 @@ def build_barchart_source(
 
     if animate:
         parts = ["Create(chart)"]
+        if xlab:               parts.append("FadeIn(x_axis_lbl)")
+        if ylab:               parts.append("FadeIn(y_axis_lbl)")
         if text_content:       parts.append("FadeIn(custom_lbl)")
         if show_preset_labels: parts.append("FadeIn(title)")
         L.append(f"        self.play({', '.join(parts)}, run_time=2.0)")
@@ -1066,6 +1123,8 @@ def build_barchart_source(
             L.append("        self.play(FadeIn(bar_lbl), run_time=0.8)")
     else:
         add_parts = ["chart"]
+        if xlab:               add_parts.append("x_axis_lbl")
+        if ylab:               add_parts.append("y_axis_lbl")
         if text_content:       add_parts.append("custom_lbl")
         if show_preset_labels: add_parts.append("title")
         if show_labels:        add_parts.append("bar_lbl")
@@ -1122,6 +1181,36 @@ _SURFACES = {
         "u_range": [0, 6.28318],
         "v_range": [-0.5, 0.5],
     },
+    "cone": {
+        "title":   "Cone",
+        "func":    "np.array([(2 - v)*np.cos(u), (2 - v)*np.sin(u), v])",
+        "u_range": [0, 6.28318],
+        "v_range": [0, 2],
+    },
+    "cylinder": {
+        "title":   "Cylinder",
+        "func":    "np.array([1.5*np.cos(u), 1.5*np.sin(u), v])",
+        "u_range": [0, 6.28318],
+        "v_range": [-2, 2],
+    },
+    "hyperboloid": {
+        "title":   "Hyperboloid",
+        "func":    "np.array([np.cosh(v)*np.cos(u), np.cosh(v)*np.sin(u), 1.5*np.sinh(v)])",
+        "u_range": [0, 6.28318],
+        "v_range": [-1.3, 1.3],
+    },
+    "monkey_saddle": {
+        "title":   "Monkey Saddle",
+        "func":    "np.array([u, v, 0.18*(u**3 - 3*u*v**2)])",
+        "u_range": [-2, 2],
+        "v_range": [-2, 2],
+    },
+    "helicoid": {
+        "title":   "Helicoid",
+        "func":    "np.array([v*np.cos(u), v*np.sin(u), 0.4*u])",
+        "u_range": [0, 12.56637],
+        "v_range": [-2, 2],
+    },
 }
 
 _SURF_COLORS = {
@@ -1138,6 +1227,7 @@ _SURF_COLORS = {
 def build_surface3d_source(
     surface_type, theta, phi, cam_zoom,
     show_axes, color_mode, resolution, animate_camera,
+    fill_opacity=1.0, surf_stroke_width=0.5,
     text_position="top_left", text_color="white", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
     bold=False, italic=False, stroke_width=0, stroke_color="white",
@@ -1157,6 +1247,8 @@ def build_surface3d_source(
     theta_d  = float(theta if theta is not None else 70)
     phi_d    = float(phi   if phi   is not None else 75)
     zoom_f   = float(cam_zoom or 1.0)
+    fop      = max(0.0, min(1.0, float(fill_opacity if fill_opacity is not None else 1.0)))
+    sw       = max(0.0, float(surf_stroke_width if surf_stroke_width is not None else 0.5))
 
     ur = surf["u_range"]
     vr = surf["v_range"]
@@ -1183,6 +1275,8 @@ def build_surface3d_source(
         f"            v_range=[{vr[0]:.5f}, {vr[1]:.5f}],",
         f"            resolution=({res}, {res}),",
         f"            checkerboard_colors={colors},",
+        f"            fill_opacity={fop:.2f},",
+        f"            stroke_width={sw:.2f}, stroke_color=GREY_A,",
         "        )",
         f"        self.set_camera_orientation(theta={theta_d:.1f}*DEGREES, phi={phi_d:.1f}*DEGREES, zoom={zoom_f:.2f})",
         "        self.play(Create(surface), run_time=2.5)",

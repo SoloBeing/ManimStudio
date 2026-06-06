@@ -5,12 +5,17 @@ import { DEFAULT_TEXT } from '../../types';
 import type { PanelHandle, TextParams } from '../../types';
 
 const SURFACES = [
-  ['Sine Wave',  'sine_wave'],
-  ['Paraboloid', 'paraboloid'],
-  ['Saddle',     'saddle'],
-  ['Torus',      'torus'],
-  ['Sphere',     'sphere'],
-  ['Ripple',     'ripple'],
+  ['Sine Wave',    'sine_wave'],
+  ['Paraboloid',   'paraboloid'],
+  ['Saddle',       'saddle'],
+  ['Monkey Saddle','monkey_saddle'],
+  ['Torus',        'torus'],
+  ['Sphere',       'sphere'],
+  ['Cone',         'cone'],
+  ['Cylinder',     'cylinder'],
+  ['Hyperboloid',  'hyperboloid'],
+  ['Helicoid',     'helicoid'],
+  ['Ripple',       'ripple'],
   ['Möbius Strip', 'mobius'],
 ];
 
@@ -32,6 +37,8 @@ export function Surface3DPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
   const [showAxes, setShowAxes]           = useState(true);
   const [colorMode, setColorMode]         = useState('checkerboard_blue');
   const [resolution, setResolution]       = useState(8);
+  const [fillOpacity, setFillOpacity]     = useState(1.0);
+  const [strokeWidth, setStrokeWidth]     = useState(0.5);
   const [animateCamera, setAnimateCamera] = useState(false);
   const [text, setText]                   = useState<TextParams>({ ...DEFAULT_TEXT });
 
@@ -44,6 +51,8 @@ export function Surface3DPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
         show_axes: showAxes,
         color_mode: colorMode,
         resolution,
+        fill_opacity: fillOpacity,
+        surf_stroke_width: strokeWidth,
         animate_camera: animateCamera,
         ...text,
       },
@@ -68,6 +77,11 @@ export function Surface3DPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
       <Knob label="Theta °" min={0}   max={360} value={theta}    onChange={v => setTheta(Math.round(v))}   decimals={0} step={5} />
       <Knob label="Phi °"   min={0}   max={180} value={phi}      onChange={v => setPhi(Math.round(v))}     decimals={0} step={5} />
       <Knob label="Zoom"    min={0.3} max={3.0} value={camZoom}  onChange={setCamZoom}                     decimals={2} step={0.1} />
+
+      <div className="sec-sep" />
+      <div className="sec-hdr">Material</div>
+      <Knob label="Opacity"      min={0.1} max={1.0} value={fillOpacity} onChange={setFillOpacity} decimals={2} step={0.05} />
+      <Knob label="Wireframe"    min={0.0} max={3.0} value={strokeWidth} onChange={setStrokeWidth} decimals={1} step={0.25} />
 
       <div className="sec-sep" />
       <div className="sec-hdr">Quality</div>

@@ -26,6 +26,9 @@ export function BarChartPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
   const [yStep, setYStep]       = useState(5);
   const [animate, setAnimate]   = useState(true);
   const [showLabels, setShowLabels] = useState(true);
+  const [xLabel, setXLabel]     = useState('');
+  const [yLabel, setYLabel]     = useState('');
+  const [barWidth, setBarWidth] = useState(0.6);
   const [text, setText]         = useState<TextParams>({ ...DEFAULT_TEXT });
 
   function updateBar(i: number, field: keyof Bar, val: string) {
@@ -53,6 +56,7 @@ export function BarChartPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
         auto_y: autoY,
         y_min: yMin, y_max: yMax, y_step: yStep,
         animate, show_labels: showLabels,
+        x_label: xLabel, y_label: yLabel, bar_width: barWidth,
         ...text,
       },
     }),
@@ -113,6 +117,24 @@ export function BarChartPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
           <Knob label="Y Step" min={1}    max={50}   value={yStep} onChange={v => setYStep(Math.round(v))} decimals={0} step={1} />
         </>
       )}
+
+      <div className="sec-sep" />
+      <div className="sec-hdr">Axis Labels</div>
+      <input
+        className="app-input"
+        style={{ width: '100%', boxSizing: 'border-box', marginBottom: 4 }}
+        value={xLabel}
+        onChange={e => setXLabel(e.target.value.slice(0, 48))}
+        placeholder="X axis label (optional)"
+      />
+      <input
+        className="app-input"
+        style={{ width: '100%', boxSizing: 'border-box' }}
+        value={yLabel}
+        onChange={e => setYLabel(e.target.value.slice(0, 48))}
+        placeholder="Y axis label (optional)"
+      />
+      <Knob label="Bar Width" min={0.1} max={1.0} value={barWidth} onChange={setBarWidth} decimals={2} step={0.05} />
 
       <div className="sec-sep" />
       <div className="sec-hdr">Options</div>
