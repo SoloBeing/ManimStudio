@@ -107,8 +107,11 @@ install -m 0755 "$HERE/postrm"   "$STAGE/DEBIAN/postrm"
 # 5. Build the .deb
 # ---------------------------------------------------------------------------
 OUT="$DIST/manimstudio_${VERSION}_amd64.deb"
-echo ">> dpkg-deb --build (this can take a while for a large bundle)"
-dpkg-deb --root-owner-group --build "$STAGE" "$OUT"
+# Compression: xz gives the smallest package (good for releases) but is slow on
+# a large bundle. Override for quick local test builds, e.g. DEB_COMPRESS=gzip.
+COMPRESS="${DEB_COMPRESS:-xz}"
+echo ">> dpkg-deb --build (compress=$COMPRESS; xz is slow on a large bundle)"
+dpkg-deb -Z"$COMPRESS" --root-owner-group --build "$STAGE" "$OUT"
 
 echo ">> Done: $OUT"
 dpkg-deb --info "$OUT" | sed 's/^/   /'
