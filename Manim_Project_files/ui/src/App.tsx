@@ -18,7 +18,9 @@ function getApi() {
     get_system_info: async () => ({
       latexOk: true, latexMissing: [], latexInstallCmd: '', latexWarnedBefore: false,
       outputDir: '~/ManimStudio/renders',
-      qualities: ['Low  480p', 'Med  720p', 'High 1080p', 'GIF'],
+      qualities: ['Low  480p', 'Med  720p', 'High 1080p'],
+      formats: ['mp4', 'webm', 'mov', 'gif', 'png'],
+      defaultFormat: 'mp4',
       fpsList: ['60', '30', '24', '15'],
       httpPort: 8080,
     }),
@@ -52,6 +54,7 @@ export default function App() {
   const [videoUrl, setVideoUrl]     = useState('');
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [quality, setQuality]       = useState('Med  720p');
+  const [format, setFormat]         = useState('mp4');
   const [fps, setFps]               = useState('30');
   const [opengl, setOpengl]         = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
@@ -62,7 +65,7 @@ export default function App() {
   const [recentRenders, setRecentRenders] = useState<RecentRender[]>([]);
 
   const panelRef      = useRef<PanelHandle>(null);
-  const renderMetaRef = useRef<{ mode: string; quality: string; fps: string } | null>(null);
+  const renderMetaRef = useRef<{ mode: string; quality: string; format: string; fps: string } | null>(null);
 
   const [sidebarWidth, setSidebarWidth] = useState(340);
   const [bottomHeight, setBottomHeight] = useState(160);
@@ -85,10 +88,10 @@ export default function App() {
     [sidebarWidth],
   );
 
-  // Persist quality/fps/opengl on every change
+  // Persist quality/format/fps/opengl on every change
   useEffect(() => {
-    localStorage.setItem('manim_settings', JSON.stringify({ quality, fps, opengl }));
-  }, [quality, fps, opengl]);
+    localStorage.setItem('manim_settings', JSON.stringify({ quality, format, fps, opengl }));
+  }, [quality, format, fps, opengl]);
 
   useEffect(() => {
     function cancelDrag() {
@@ -159,7 +162,12 @@ export default function App() {
         setOutputDir(info.outputDir);
         setRecentRenders(recent);
         const stored = loadStoredSettings();
-        setQuality(stored.quality ?? info.qualities[1] ?? info.qualities[0]);
+        // A stored quality from an older build may be a removed preset
+        // (e.g. "GIF"/"Still (PNG)") now expressed as a format — ignore it.
+        const validQuality = stored.quality && info.qualities.includes(stored.quality);
+        setQuality(validQuality ? stored.quality! : (info.qualities[1] ?? info.qualities[0]));
+        const validFormat = stored.format && info.formats.includes(stored.format);
+        setFormat(validFormat ? stored.format! : info.defaultFormat);
         setFps(stored.fps ?? info.fpsList[1] ?? info.fpsList[0]);
         if (stored.opengl !== undefined) setOpengl(stored.opengl);
         if (info.latexMissing.length > 0 && !info.latexWarnedBefore) {
@@ -213,12 +221,12 @@ export default function App() {
     const handle = panelRef.current;
     if (!handle) return;
     const { mode, params, sceneName } = handle.getParams();
-    renderMetaRef.current = { mode, quality, fps };
+    renderMetaRef.current = { mode, quality, format, fps };
     setLogLines([]);
     setVideoUrl('');
     setStatus('rendering');
     const result = await getApi().render(
-      mode, JSON.stringify(params), sceneName ?? '', quality, fps.split(' ')[0], opengl,
+      mode, JSON.stringify(params), sceneName ?? '', quality, fps.split(' ')[0], opengl, format,
     );
     if (!result.ok) {
       if (result.latexRequired) {
@@ -235,7 +243,7 @@ export default function App() {
         setStatus('error');
       }
     }
-  }, [quality, fps, opengl, systemInfo]);
+  }, [quality, format, fps, opengl, systemInfo]);
 
   const handleStop = useCallback(async () => {
     await getApi().stop_render();
@@ -299,11 +307,11 @@ export default function App() {
   }, [systemInfo]);
 
   const handleSavePreset = useCallback((name: string) => {
-    const p: Preset = { id: crypto.randomUUID(), name, quality, fps, opengl };
+    const p: Preset = { id: crypto.randomUUID(), name, quality, format, fps, opengl };
     const next = [p, ...presets];
     setPresets(next);
     localStorage.setItem('manim_presets', JSON.stringify(next));
-  }, [quality, fps, opengl, presets]);
+  }, [quality, format, fps, opengl, presets]);
 
   const handleDeletePreset = useCallback((id: string) => {
     const next = presets.filter(p => p.id !== id);
@@ -313,6 +321,7 @@ export default function App() {
 
   const handleApplyPreset = useCallback((p: Preset) => {
     setQuality(p.quality);
+    if (p.format) setFormat(p.format);
     setFps(p.fps);
     setOpengl(p.opengl);
   }, []);
@@ -345,8 +354,8 @@ export default function App() {
       )}
 
       <TopBar
-        systemInfo={systemInfo} quality={quality} fps={fps} opengl={opengl} outputDir={outputDir}
-        onQualityChange={setQuality} onFpsChange={setFps} onOpenglChange={setOpengl}
+        systemInfo={systemInfo} quality={quality} format={format} fps={fps} opengl={opengl} outputDir={outputDir}
+        onQualityChange={setQuality} onFormatChange={setFormat} onFpsChange={setFps} onOpenglChange={setOpengl}
         onBrowseOutput={handleBrowseOutput}
         presets={presets}
         onApplyPreset={handleApplyPreset} onSavePreset={handleSavePreset} onDeletePreset={handleDeletePreset}

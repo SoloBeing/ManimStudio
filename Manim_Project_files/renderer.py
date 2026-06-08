@@ -1,12 +1,25 @@
 import sys, os, ast, subprocess, tempfile, shutil, signal, threading, json
 
+# Quality presets are resolution/fps only — the output container is chosen
+# separately via FORMATS so any resolution can be rendered to any format.
 QUALITY = {
-    "Low  480p" : ["-ql", "--format", "webm"],
-    "Med  720p" : ["-qm", "--format", "webm"],
-    "High 1080p": ["-qh", "--format", "webm"],
-    "GIF"       : ["-ql", "--format", "gif"],
-    "Still (PNG)": ["-ql", "-s"],
+    "Low  480p" : ["-ql"],
+    "Med  720p" : ["-qm"],
+    "High 1080p": ["-qh"],
 }
+
+# Output format -> (extra manim flags, file extension, needs_webm_preview_proxy).
+# The preview pane is Qt WebEngine, which can only decode VP8/VP9 (webm) plus
+# gif/png — NOT H.264 mp4 or mov. Those are flagged for a transcoded webm
+# proxy so the in-app preview still works while the saved file stays mp4/mov.
+FORMATS = {
+    "mp4" : (["--format", "mp4"],  ".mp4",  True),
+    "webm": (["--format", "webm"], ".webm", False),
+    "mov" : (["--format", "mov"],  ".mov",  True),
+    "gif" : (["--format", "gif"],  ".gif",  False),
+    "png" : (["-s"],               ".png",  False),
+}
+DEFAULT_FORMAT = "mp4"
 
 RENDERS_DIR = os.path.join(os.path.expanduser("~"), "ManimStudio", "renders")
 try:

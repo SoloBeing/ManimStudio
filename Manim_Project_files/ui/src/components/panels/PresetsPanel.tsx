@@ -3,6 +3,7 @@ import type { Preset } from '../../types';
 
 interface PresetsPanelProps {
   quality: string;
+  format: string;
   fps: string;
   opengl: boolean;
   presets: Preset[];
@@ -11,7 +12,7 @@ interface PresetsPanelProps {
   onDelete: (id: string) => void;
 }
 
-export function PresetsPanel({ quality, fps, opengl, presets, onApply, onSave, onDelete }: PresetsPanelProps) {
+export function PresetsPanel({ quality, format, fps, opengl, presets, onApply, onSave, onDelete }: PresetsPanelProps) {
   const [newName, setNewName] = useState('');
 
   function handleSave() {
@@ -27,7 +28,7 @@ export function PresetsPanel({ quality, fps, opengl, presets, onApply, onSave, o
       <section>
         <div style={headerStyle}>Save Current as Preset</div>
         <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 8 }}>
-          {quality} · {fps} fps{opengl ? ' · OpenGL' : ''}
+          {quality} · {format.toUpperCase()} · {fps} fps{opengl ? ' · OpenGL' : ''}
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           <input
@@ -78,7 +79,7 @@ export function PresetsPanel({ quality, fps, opengl, presets, onApply, onSave, o
                     {p.name}
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 2 }}>
-                    {p.quality} · {p.fps} fps{p.opengl ? ' · OpenGL' : ''}
+                    {p.quality}{p.format ? ` · ${p.format.toUpperCase()}` : ''} · {p.fps} fps{p.opengl ? ' · OpenGL' : ''}
                   </div>
                 </div>
                 <button onClick={() => onApply(p)} style={applyBtnStyle}>Apply</button>

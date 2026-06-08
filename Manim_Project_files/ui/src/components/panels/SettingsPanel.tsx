@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { SystemInfo } from '../../types';
 import { Dropdown } from '../shared/Dropdown';
 
-export function loadStoredSettings(): { quality?: string; fps?: string; opengl?: boolean } {
+export function loadStoredSettings(): { quality?: string; format?: string; fps?: string; opengl?: boolean } {
   try {
     return JSON.parse(localStorage.getItem('manim_settings') ?? '{}');
   } catch {
@@ -13,20 +13,23 @@ export function loadStoredSettings(): { quality?: string; fps?: string; opengl?:
 interface SettingsPanelProps {
   systemInfo: SystemInfo | null;
   quality: string;
+  format: string;
   fps: string;
   opengl: boolean;
   outputDir: string;
   onQualityChange: (q: string) => void;
+  onFormatChange: (f: string) => void;
   onFpsChange: (f: string) => void;
   onOpenglChange: (v: boolean) => void;
   onBrowseOutput: () => void;
 }
 
 export function SettingsPanel({
-  systemInfo, quality, fps, opengl, outputDir,
-  onQualityChange, onFpsChange, onOpenglChange, onBrowseOutput,
+  systemInfo, quality, format, fps, opengl, outputDir,
+  onQualityChange, onFormatChange, onFpsChange, onOpenglChange, onBrowseOutput,
 }: SettingsPanelProps) {
   const qualities = systemInfo?.qualities ?? [];
+  const formats   = systemInfo?.formats   ?? [];
   const fpsList   = systemInfo?.fpsList   ?? [];
 
   return (
@@ -36,6 +39,9 @@ export function SettingsPanel({
         <SectionHeader>Render Defaults</SectionHeader>
         <Row label="Quality">
           <Dropdown value={quality} options={qualities} onChange={onQualityChange} direction="down" />
+        </Row>
+        <Row label="Format">
+          <Dropdown value={format} options={formats} onChange={onFormatChange} renderLabel={f => f.toUpperCase()} direction="down" />
         </Row>
         <Row label="FPS">
           <Dropdown value={fps} options={fpsList} onChange={onFpsChange} renderLabel={f => `${f} fps`} direction="down" />

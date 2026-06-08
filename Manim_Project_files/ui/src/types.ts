@@ -5,6 +5,7 @@ export interface Preset {
   id: string;
   name: string;
   quality: string;
+  format: string;
   fps: string;
   opengl: boolean;
 }
@@ -27,6 +28,8 @@ export interface SystemInfo {
   latexWarnedBefore: boolean;
   outputDir: string;
   qualities: string[];
+  formats: string[];
+  defaultFormat: string;
   fpsList: string[];
   httpPort: number;
 }
@@ -76,6 +79,7 @@ export interface PyWebViewApi {
     quality?: string,
     fps?: string,
     opengl?: boolean,
+    fmt?: string,
   ) => Promise<{
     ok: boolean;
     error?: string;

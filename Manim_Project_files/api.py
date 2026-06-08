@@ -1,12 +1,30 @@
 import sys, os, re, json, shutil, threading, http.server, socket, platform
+import subprocess, hashlib
 
 import webview
 
 from renderer import (
-    QUALITY, RENDERS_DIR, RenderThread, validate_playground_source,
-    get_worker, shutdown_worker,
+    QUALITY, FORMATS, DEFAULT_FORMAT, RENDERS_DIR, RenderThread,
+    validate_playground_source, get_worker, shutdown_worker,
 )
 import builders
+
+# Transcoded webm previews for formats Qt WebEngine can't decode (mp4/mov)
+# live here, keyed by source path+mtime+size so they can be reused and are
+# easy to purge wholesale on shutdown.
+_PREVIEW_DIR = os.path.join(os.path.expanduser("~"), "ManimStudio", "previews")
+
+
+def _ffmpeg_exe() -> str:
+    """Locate an ffmpeg binary: system PATH first, then manim's imageio-ffmpeg."""
+    exe = shutil.which("ffmpeg")
+    if exe:
+        return exe
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return ""
 
 _FPS_LIST = ["60", "30", "24", "15"]
 
@@ -90,13 +108,15 @@ class Api:
         self._lock        = threading.Lock()
         self._log_lines   = []
         self._status      = "idle"   # idle | rendering | done | error | stopped
-        self._video_path  = ""
+        self._video_path  = ""       # real output file (what Save copies)
+        self._preview_path = ""      # WebEngine-playable file the preview loads
         self._render_stem = ""       # temp-file stem of the current/last render
         self._render_saved = False   # True once the current render has been saved
+        self._render_needs_proxy = False  # current format needs a webm preview
         self._output_dir  = RENDERS_DIR
         # Directories the HTTP server is allowed to serve; updated when the
         # output dir changes or the UI dist path is registered via ui_url().
-        self._allowed_dirs = [os.path.abspath(RENDERS_DIR)]
+        self._allowed_dirs = [os.path.abspath(RENDERS_DIR), os.path.abspath(_PREVIEW_DIR)]
 
         self._latex_missing = [t for t in ("latex", "dvisvgm") if not shutil.which(t)]
 
@@ -174,6 +194,8 @@ class Api:
             "latexWarnedBefore": os.path.exists(_LATEX_WARNED_FLAG),
             "outputDir":         self._output_dir,
             "qualities":         list(QUALITY.keys()),
+            "formats":           list(FORMATS.keys()),
+            "defaultFormat":     DEFAULT_FORMAT,
             "fpsList":           _FPS_LIST,
             "httpPort":          self._http_port,
         }
@@ -188,7 +210,7 @@ class Api:
 
     def render(self, mode: str, params_json: str, scene_name: str = "",
                quality: str = "Med  720p", fps: str = "30",
-               opengl: bool = False) -> dict:
+               opengl: bool = False, fmt: str = DEFAULT_FORMAT) -> dict:
         with self._lock:
             if self._thread and self._thread.is_alive():
                 return {"ok": False, "error": "Render already in progress"}
@@ -234,7 +256,11 @@ class Api:
                                    "labels), but LaTeX is not installed.",
             }
 
-        flags = list(QUALITY.get(quality, QUALITY["Med  720p"]))
+        if fmt not in FORMATS:
+            return {"ok": False, "error": f"Invalid format: {fmt!r}"}
+        fmt_flags, _ext, needs_proxy = FORMATS[fmt]
+
+        flags = list(QUALITY.get(quality, QUALITY["Med  720p"])) + list(fmt_flags)
         flags += ["--fps", fps_val]
         if opengl:
             flags += ["--renderer", "opengl", "--write_to_movie"]
@@ -244,6 +270,8 @@ class Api:
             self._log_lines.clear()
             self._status      = "rendering"
             self._video_path  = ""
+            self._preview_path = ""
+            self._render_needs_proxy = needs_proxy
             self._render_stem = ""
 
         self._cleanup_render_artifacts(prev_stem)
@@ -273,13 +301,14 @@ class Api:
         with self._lock:
             lines            = list(self._log_lines)
             self._log_lines.clear()
-            status     = self._status
-            video_path = self._video_path
+            status       = self._status
+            video_path   = self._video_path
+            preview_path = self._preview_path or self._video_path
         return {
             "status":       status,
             "logLines":     lines,
             "videoPending": bool(video_path),
-            "videoUrl":     self._video_url(video_path),
+            "videoUrl":     self._video_url(preview_path),
             "outputDir":    self._output_dir,
         }
 
@@ -307,7 +336,7 @@ class Api:
             return {"ok": False, "error": "No window"}
         ext   = os.path.splitext(path)[1].lower()
         name  = os.path.basename(path)
-        label = "Image" if ext == ".png" else "Video"
+        label = "Image" if ext in (".png", ".gif", ".jpg", ".jpeg") else "Video"
         result = self._window.create_file_dialog(
             webview.FileDialog.SAVE,
             save_filename=name,
@@ -329,11 +358,12 @@ class Api:
 
     def discard_render(self) -> dict:
         with self._lock:
-            path              = self._video_path
-            stem              = self._render_stem
-            self._video_path  = ""
-            self._render_stem = ""
-            self._status      = "idle"
+            path               = self._video_path
+            stem               = self._render_stem
+            self._video_path   = ""
+            self._preview_path = ""
+            self._render_stem  = ""
+            self._status       = "idle"
         self._cleanup_render_artifacts(stem)
         return {"ok": True}
 
@@ -375,11 +405,13 @@ class Api:
         if not os.path.exists(path):
             return {"ok": False, "error": "File not found"}
         abs_path = os.path.abspath(path)
-        parent = os.path.dirname(abs_path)
-        if parent not in self._allowed_dirs:
-            self._allowed_dirs.append(parent)
         is_image = abs_path.lower().endswith((".png", ".gif", ".jpg", ".jpeg"))
-        return {"ok": True, "videoUrl": f"http://127.0.0.1:{self._http_port}{_fs_to_url_path(abs_path)}", "isImage": is_image}
+        # mp4/mov can't play in the preview pane — load a webm proxy instead.
+        disp_path = self._previewable_path(abs_path)
+        for d in {os.path.dirname(abs_path), os.path.dirname(disp_path)}:
+            if d not in self._allowed_dirs:
+                self._allowed_dirs.append(d)
+        return {"ok": True, "videoUrl": self._video_url(disp_path), "isImage": is_image}
 
     # ------------------------------------------------------------------
     def cleanup(self):
@@ -393,6 +425,7 @@ class Api:
             t.stop()
             t.join(timeout=5)
         self._cleanup_render_artifacts(stem)
+        shutil.rmtree(_PREVIEW_DIR, ignore_errors=True)
         try:
             shutdown_worker()
         except Exception:
@@ -401,6 +434,66 @@ class Api:
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
+
+    def _previewable_path(self, path: str) -> str:
+        """Return a path the Qt WebEngine preview can display.
+
+        mp4/mov carry H.264 the preview pane can't decode, so they're
+        transcoded to a cached webm. Everything else (webm/gif/png) plays
+        natively and is returned unchanged. On any failure the original
+        path is returned — the file still Saves fine, only preview is lost.
+        """
+        if not path:
+            return path
+        if os.path.splitext(path)[1].lower() not in (".mp4", ".mov"):
+            return path
+        try:
+            st  = os.stat(path)
+            key = hashlib.md5(
+                f"{os.path.abspath(path)}|{st.st_mtime_ns}|{st.st_size}".encode()
+            ).hexdigest()
+        except OSError:
+            return path
+        proxy = os.path.join(_PREVIEW_DIR, key + ".webm")
+        if os.path.exists(proxy):
+            return proxy
+        return proxy if self._transcode_webm(path, proxy) else path
+
+    def _transcode_webm(self, src: str, dst: str) -> bool:
+        ff = _ffmpeg_exe()
+        if not ff:
+            self._on_log("[WARN] ffmpeg not found — preview unavailable for this format")
+            return False
+        try:
+            os.makedirs(_PREVIEW_DIR, exist_ok=True)
+        except OSError:
+            return False
+        tmp = dst + ".part"
+        self._on_log("[INFO] generating preview…")
+        try:
+            r = subprocess.run(
+                [ff, "-y", "-i", src,
+                 "-c:v", "libvpx", "-deadline", "realtime", "-cpu-used", "5",
+                 "-b:v", "1M", "-an", "-f", "webm", tmp],
+                capture_output=True, text=True, timeout=180,
+            )
+        except (subprocess.TimeoutExpired, OSError) as e:
+            self._on_log(f"[WARN] preview transcode failed: {e}")
+            r = None
+        ok = bool(r) and r.returncode == 0 and os.path.exists(tmp)
+        if ok:
+            try:
+                os.replace(tmp, dst)
+            except OSError:
+                ok = False
+        if not ok:
+            try:
+                if os.path.exists(tmp):
+                    os.unlink(tmp)
+            except OSError:
+                pass
+            self._on_log("[WARN] preview transcode failed — file still saves correctly")
+        return ok
 
     def _cleanup_render_artifacts(self, stem: str, keep_path: str = ""):
         if not stem:
@@ -435,11 +528,15 @@ class Api:
         stem = self._thread.render_stem if self._thread else ""
         if video_path:
             with self._lock:
+                need_proxy = self._render_needs_proxy
+            preview_path = self._previewable_path(video_path) if need_proxy else video_path
+            with self._lock:
                 self._video_path   = video_path
+                self._preview_path = preview_path
                 self._render_stem  = stem
                 self._render_saved = False
                 self._status       = "done"
-            self._push({"status": "done", "videoUrl": self._video_url(video_path)})
+            self._push({"status": "done", "videoUrl": self._video_url(preview_path)})
         else:
             with self._lock:
                 status = self._status

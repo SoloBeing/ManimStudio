@@ -9,10 +9,12 @@ type OpenPanel = 'settings' | 'presets' | 'recent' | null;
 interface TopBarProps {
   systemInfo: SystemInfo | null;
   quality: string;
+  format: string;
   fps: string;
   opengl: boolean;
   outputDir: string;
   onQualityChange: (q: string) => void;
+  onFormatChange: (f: string) => void;
   onFpsChange: (f: string) => void;
   onOpenglChange: (v: boolean) => void;
   onBrowseOutput: () => void;
@@ -26,8 +28,8 @@ interface TopBarProps {
 }
 
 export const TopBar = memo(function TopBar({
-  systemInfo, quality, fps, opengl, outputDir,
-  onQualityChange, onFpsChange, onOpenglChange, onBrowseOutput,
+  systemInfo, quality, format, fps, opengl, outputDir,
+  onQualityChange, onFormatChange, onFpsChange, onOpenglChange, onBrowseOutput,
   presets, onApplyPreset, onSavePreset, onDeletePreset,
   recentRenders, onLoadRender, onClearRecent,
 }: TopBarProps) {
@@ -74,8 +76,8 @@ export const TopBar = memo(function TopBar({
       {open === 'settings' && (
         <Dropdown width={320}>
           <SettingsPanel
-            systemInfo={systemInfo} quality={quality} fps={fps} opengl={opengl} outputDir={outputDir}
-            onQualityChange={onQualityChange} onFpsChange={onFpsChange}
+            systemInfo={systemInfo} quality={quality} format={format} fps={fps} opengl={opengl} outputDir={outputDir}
+            onQualityChange={onQualityChange} onFormatChange={onFormatChange} onFpsChange={onFpsChange}
             onOpenglChange={onOpenglChange} onBrowseOutput={onBrowseOutput}
           />
         </Dropdown>
@@ -83,7 +85,7 @@ export const TopBar = memo(function TopBar({
       {open === 'presets' && (
         <Dropdown width={300}>
           <PresetsPanel
-            quality={quality} fps={fps} opengl={opengl}
+            quality={quality} format={format} fps={fps} opengl={opengl}
             presets={presets}
             onApply={p => { onApplyPreset(p); setOpen(null); }}
             onSave={onSavePreset}
