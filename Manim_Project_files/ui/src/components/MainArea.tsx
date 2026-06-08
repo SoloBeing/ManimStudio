@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import type { RenderStatus } from '../types';
+import { isImagePath } from '../utils';
 
 interface MainAreaProps {
   status: RenderStatus;
@@ -10,7 +11,7 @@ interface MainAreaProps {
 
 export const MainArea = memo(function MainArea({ status, videoUrl, onSave, onDiscard }: MainAreaProps) {
   const hasPending = status === 'done' && !!videoUrl;
-  const isImage    = videoUrl.toLowerCase().endsWith('.png');
+  const isImage    = isImagePath(videoUrl);
 
   return (
     <div className="main-area">

@@ -92,6 +92,7 @@ class Api:
         self._status      = "idle"   # idle | rendering | done | error | stopped
         self._video_path  = ""
         self._render_stem = ""       # temp-file stem of the current/last render
+        self._render_saved = False   # True once the current render has been saved
         self._output_dir  = RENDERS_DIR
         # Directories the HTTP server is allowed to serve; updated when the
         # output dir changes or the UI dist path is registered via ui_url().
@@ -319,12 +320,11 @@ class Api:
             shutil.copy2(path, dest)
         except OSError as e:
             return {"ok": False, "error": str(e)}
+        # Keep the render available so it can be saved again (e.g. to another
+        # location). State and temp artifacts are cleared by discard_render,
+        # the next render, or app cleanup.
         with self._lock:
-            stem              = self._render_stem
-            self._video_path  = ""
-            self._render_stem = ""
-            self._status      = "idle"
-        self._cleanup_render_artifacts(stem, keep_path=dest)
+            self._render_saved = True
         return {"ok": True, "path": dest}
 
     def discard_render(self) -> dict:
@@ -378,7 +378,7 @@ class Api:
         parent = os.path.dirname(abs_path)
         if parent not in self._allowed_dirs:
             self._allowed_dirs.append(parent)
-        is_image = abs_path.lower().endswith((".png", ".jpg", ".jpeg"))
+        is_image = abs_path.lower().endswith((".png", ".gif", ".jpg", ".jpeg"))
         return {"ok": True, "videoUrl": f"http://127.0.0.1:{self._http_port}{_fs_to_url_path(abs_path)}", "isImage": is_image}
 
     # ------------------------------------------------------------------
@@ -435,9 +435,10 @@ class Api:
         stem = self._thread.render_stem if self._thread else ""
         if video_path:
             with self._lock:
-                self._video_path  = video_path
-                self._render_stem = stem
-                self._status      = "done"
+                self._video_path   = video_path
+                self._render_stem  = stem
+                self._render_saved = False
+                self._status       = "done"
             self._push({"status": "done", "videoUrl": self._video_url(video_path)})
         else:
             with self._lock:

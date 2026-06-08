@@ -125,7 +125,11 @@ def main():
 
     def _on_closing():
         with api._lock:
-            has_unsaved = bool(api._video_path and os.path.exists(api._video_path))
+            has_unsaved = bool(
+                api._video_path
+                and not api._render_saved
+                and os.path.exists(api._video_path)
+            )
         if has_unsaved:
             # Push dialog to JS from a thread — avoid calling evaluate_js
             # synchronously inside Qt's closeEvent handler.

@@ -9,6 +9,7 @@ import { TopBar }      from './components/TopBar';
 import { CloseDialog }  from './components/CloseDialog';
 import { LaTeXDialog }  from './components/LaTeXDialog';
 import { loadStoredSettings } from './components/panels/SettingsPanel';
+import { isImagePath } from './utils';
 import './App.css';
 
 function getApi() {
@@ -249,7 +250,7 @@ export default function App() {
         timestamp: Date.now(),
         mode, quality: q, fps: f,
         path: result.path,
-        isImage: result.path.endsWith('.png'),
+        isImage: isImagePath(result.path),
       };
       await getApi().add_recent_render(JSON.stringify(entry));
       setRecentRenders(prev => [entry, ...prev].slice(0, 20));
