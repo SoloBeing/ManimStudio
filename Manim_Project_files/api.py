@@ -114,6 +114,8 @@ class Api:
         self._render_saved = False   # True once the current render has been saved
         self._render_needs_proxy = False  # current format needs a webm preview
         self._render_is_loaded = False    # current item was opened via load_render
+        self._render_opengl = False       # OpenGL renderer requested for current render
+        self._init_hint_emitted = False   # one-shot guard for the OpenGL __init__ hint
         self._output_dir  = RENDERS_DIR
         # Directories the HTTP server is allowed to serve; updated when the
         # output dir changes or the UI dist path is registered via ui_url().
@@ -274,6 +276,8 @@ class Api:
             self._preview_path = ""
             self._render_needs_proxy = needs_proxy
             self._render_is_loaded = False
+            self._render_opengl = opengl
+            self._init_hint_emitted = False
             self._render_stem = ""
 
         self._cleanup_render_artifacts(prev_stem)
@@ -544,6 +548,19 @@ class Api:
     def _on_log(self, msg: str):
         with self._lock:
             self._log_lines.append(msg)
+            # The OpenGL render path constructs scenes as SceneClass(renderer),
+            # passing renderer positionally — so a custom __init__ that doesn't
+            # accept a positional arg fails with this exact TypeError. Cairo
+            # doesn't, so the same scene works from the CLI. Turn the cryptic
+            # traceback into an actionable hint.
+            if (self._render_opengl and not self._init_hint_emitted
+                    and "__init__()" in msg and "positional argument" in msg):
+                self._init_hint_emitted = True
+                self._log_lines.append(
+                    "[HINT] OpenGL passes the renderer to your scene positionally. "
+                    "Give your scene 'def __init__(self, *args, **kwargs): "
+                    "super().__init__(*args, ...)', or turn off OpenGL in Settings."
+                )
 
     def _on_done(self, video_path: str):
         stem = self._thread.render_stem if self._thread else ""
