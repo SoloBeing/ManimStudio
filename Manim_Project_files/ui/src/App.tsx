@@ -327,6 +327,10 @@ export default function App() {
   }, []);
 
   const handleLoadRender = useCallback(async (r: RecentRender) => {
+    if (status === 'rendering') {
+      setLogLines(prev => [...prev, '[WARN] Stop the current render before loading a recent one.']);
+      return;
+    }
     const result = await getApi().load_render(r.path);
     if (result.ok && result.videoUrl) {
       setVideoUrl(result.videoUrl);
@@ -334,7 +338,7 @@ export default function App() {
     } else {
       setLogLines(prev => [...prev, `[WARN] Could not load: ${result.error ?? 'File not found'}`]);
     }
-  }, []);
+  }, [status]);
 
   const handleClearRecent = useCallback(async () => {
     await getApi().clear_recent_renders();

@@ -113,6 +113,7 @@ class Api:
         self._render_stem = ""       # temp-file stem of the current/last render
         self._render_saved = False   # True once the current render has been saved
         self._render_needs_proxy = False  # current format needs a webm preview
+        self._render_is_loaded = False    # current item was opened via load_render
         self._output_dir  = RENDERS_DIR
         # Directories the HTTP server is allowed to serve; updated when the
         # output dir changes or the UI dist path is registered via ui_url().
@@ -266,12 +267,13 @@ class Api:
             flags += ["--renderer", "opengl", "--write_to_movie"]
 
         with self._lock:
-            prev_stem        = self._render_stem
+            prev_stem        = "" if self._render_is_loaded else self._render_stem
             self._log_lines.clear()
             self._status      = "rendering"
             self._video_path  = ""
             self._preview_path = ""
             self._render_needs_proxy = needs_proxy
+            self._render_is_loaded = False
             self._render_stem = ""
 
         self._cleanup_render_artifacts(prev_stem)
@@ -358,11 +360,12 @@ class Api:
 
     def discard_render(self) -> dict:
         with self._lock:
-            path               = self._video_path
-            stem               = self._render_stem
+            # A loaded item is an external file we don't own — never clean it up.
+            stem               = "" if self._render_is_loaded else self._render_stem
             self._video_path   = ""
             self._preview_path = ""
             self._render_stem  = ""
+            self._render_is_loaded = False
             self._status       = "idle"
         self._cleanup_render_artifacts(stem)
         return {"ok": True}
@@ -404,6 +407,9 @@ class Api:
         path = os.path.expanduser(path)
         if not os.path.exists(path):
             return {"ok": False, "error": "File not found"}
+        with self._lock:
+            if self._thread and self._thread.is_alive():
+                return {"ok": False, "error": "Stop the current render before loading"}
         abs_path = os.path.abspath(path)
         is_image = abs_path.lower().endswith((".png", ".gif", ".jpg", ".jpeg"))
         # mp4/mov can't play in the preview pane — load a webm proxy instead.
@@ -411,6 +417,21 @@ class Api:
         for d in {os.path.dirname(abs_path), os.path.dirname(disp_path)}:
             if d not in self._allowed_dirs:
                 self._allowed_dirs.append(d)
+        # Adopt the loaded file as the current item so Save/Discard act on what
+        # is actually shown. It already exists on disk (an external user file),
+        # so mark it saved (no unsaved-close prompt) and loaded (Discard/cleanup
+        # must never delete it — only renders own their temp artifacts).
+        with self._lock:
+            prev_stem            = "" if self._render_is_loaded else self._render_stem
+            self._video_path     = abs_path
+            self._preview_path   = disp_path
+            self._render_stem    = ""
+            self._render_is_loaded = True
+            self._render_saved   = True
+            self._status         = "done"
+        # keep_path guards the rare case of loading a file that lives under the
+        # previous render's own stem (don't delete what we're about to show).
+        self._cleanup_render_artifacts(prev_stem, keep_path=abs_path)
         return {"ok": True, "videoUrl": self._video_url(disp_path), "isImage": is_image}
 
     # ------------------------------------------------------------------
