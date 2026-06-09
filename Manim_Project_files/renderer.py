@@ -254,11 +254,18 @@ class RenderThread(threading.Thread):
                 if candidate and os.path.exists(candidate):
                     video = candidate
 
-        # Fallback: newest mp4/gif in output_dir
-        if not video:
+        # Fallback: newest output file belonging to THIS render. Manim writes
+        # under a directory named after the input temp file's stem
+        # (media_dir/videos/<stem>/... and media_dir/images/<stem>/...), so we
+        # scope to self.render_stem. Without this scope, a render that produced
+        # nothing (e.g. it failed) would grab a stale file from a prior render
+        # and report a false "done".
+        if not video and self.render_stem:
             candidates = []
             for root_, _, files in os.walk(self.output_dir):
                 if "partial_movie_files" in root_:
+                    continue
+                if self.render_stem not in root_.split(os.sep):
                     continue
                 for fname in files:
                     if fname.endswith((".mp4", ".webm", ".gif", ".png")):
