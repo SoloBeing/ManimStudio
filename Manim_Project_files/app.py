@@ -14,10 +14,19 @@ if getattr(sys, "frozen", False) and sys.platform == "win32" and "--run-manim" i
     )
     sys.stderr = sys.stdout
 
-# console=False hides all output on Windows — write to ~/ManimStudio/crash.log
-# so launch failures are visible. Must come before any import that could fail.
-# Only for the main UI process (not --run-manim subprocesses, handled above).
-elif getattr(sys, "frozen", False) and sys.platform == "win32":
+# A frozen GUI launch has no console (console=False on Windows; a menu/.desktop
+# launch on Linux has no terminal) — write to ~/ManimStudio/crash.log so launch
+# failures are visible. Must come before any import that could fail. ONLY the
+# main UI process: both --run-manim and --warm-worker run as renderer children
+# with stdout=PIPE on POSIX, and redirecting their stdout here would steal
+# Manim's piped output and truncate the main log. They fall through and print
+# to the pipe natively.
+elif (
+    getattr(sys, "frozen", False)
+    and sys.platform in ("win32", "linux")
+    and "--run-manim" not in sys.argv
+    and "--warm-worker" not in sys.argv
+):
     import time as _time
 
     class _TimestampStream:
@@ -53,17 +62,19 @@ elif getattr(sys, "frozen", False) and sys.platform == "win32":
     sys.stdout = _log
     sys.stderr = _log
 
-    def _win_excepthook(exc_type, exc_value, exc_tb):
-        import traceback, ctypes
+    def _crash_excepthook(exc_type, exc_value, exc_tb):
+        import traceback
         tb = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
-        print(tb, flush=True)
-        ctypes.windll.user32.MessageBoxW(
-            0,
-            f"ManimStudio failed to start.\n\nSee crash.log in:\n{_log_dir}\n\n{tb[:600]}",
-            "ManimStudio Error",
-            0x10,
-        )
-    sys.excepthook = _win_excepthook
+        print(tb, flush=True)  # lands in crash.log on both Windows and Linux
+        if sys.platform == "win32":
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(
+                0,
+                f"ManimStudio failed to start.\n\nSee crash.log in:\n{_log_dir}\n\n{tb[:600]}",
+                "ManimStudio Error",
+                0x10,
+            )
+    sys.excepthook = _crash_excepthook
 
 # Qt WebEngine sandbox is incompatible with frozen PyInstaller bundles on
 # Windows — the renderer subprocess can't locate its resources and shows a
@@ -75,19 +86,27 @@ if sys.platform == "win32":
 # bundle PyInstaller's Qt hook puts it at PyQt6/Qt6/bin/QtWebEngineProcess.exe
 # but Qt's default search may not find it without a qt.conf. Set the env var
 # so Qt locates it regardless of working directory.
-if getattr(sys, "frozen", False) and sys.platform == "win32" and "--run-manim" not in sys.argv:
-    import glob as _glob, platform as _platform
+if (
+    getattr(sys, "frozen", False)
+    and sys.platform in ("win32", "linux")
+    and "--run-manim" not in sys.argv
+    and "--warm-worker" not in sys.argv
+):
+    import platform as _platform
     print(f"ManimStudio starting -> {_platform.platform()} -> Python {sys.version}", flush=True)
     print(f"Bundle root: {sys._MEIPASS}", flush=True)
-    _proc_hits = _glob.glob(
-        os.path.join(sys._MEIPASS, "**", "QtWebEngineProcess.exe"),
-        recursive=True,
-    )
-    if _proc_hits:
-        os.environ.setdefault("QTWEBENGINEPROCESS_PATH", _proc_hits[0])
-        print(f"QtWebEngineProcess.exe -> {_proc_hits[0]}", flush=True)
-    else:
-        print("WARNING: QtWebEngineProcess.exe not found in bundle", flush=True)
+    # QtWebEngineProcess location workaround is Windows-only.
+    if sys.platform == "win32":
+        import glob as _glob
+        _proc_hits = _glob.glob(
+            os.path.join(sys._MEIPASS, "**", "QtWebEngineProcess.exe"),
+            recursive=True,
+        )
+        if _proc_hits:
+            os.environ.setdefault("QTWEBENGINEPROCESS_PATH", _proc_hits[0])
+            print(f"QtWebEngineProcess.exe -> {_proc_hits[0]}", flush=True)
+        else:
+            print("WARNING: QtWebEngineProcess.exe not found in bundle", flush=True)
 
 # Warm Manim worker (POSIX). Short-circuit BEFORE importing webview/Qt so the
 # worker stays a clean, fork-safe process that only imports manim. Launched as
