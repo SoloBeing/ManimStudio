@@ -9,7 +9,7 @@ import { TopBar }      from './components/TopBar';
 import { CloseDialog }  from './components/CloseDialog';
 import { LaTeXDialog }  from './components/LaTeXDialog';
 import { loadStoredSettings } from './components/panels/SettingsPanel';
-import { isImagePath } from './utils';
+import { isImagePath, stamp } from './utils';
 import './App.css';
 
 function getApi() {
@@ -232,14 +232,14 @@ export default function App() {
       if (result.latexRequired) {
         // Nothing actually rendered — this is a preflight block, not an error.
         setStatus('idle');
-        setLogLines(prev => [...prev, `[BLOCKED] ${result.error}`]);
+        setLogLines(prev => [...prev, stamp(`[BLOCKED] ${result.error}`)]);
         setLatexDialog({
           missing:    result.latexMissing ?? systemInfo?.latexMissing ?? ['latex'],
           installCmd: result.latexInstallCmd ?? systemInfo?.latexInstallCmd ?? '',
           withDontShow: false,
         });
       } else {
-        setLogLines(prev => [...prev, `[ERROR] ${result.error}`]);
+        setLogLines(prev => [...prev, stamp(`[ERROR] ${result.error}`)]);
         setStatus('error');
       }
     }
@@ -263,7 +263,7 @@ export default function App() {
       await getApi().add_recent_render(JSON.stringify(entry));
       setRecentRenders(prev => [entry, ...prev].slice(0, 20));
     } else if (!result.ok && result.error !== 'Cancelled') {
-      setLogLines(prev => [...prev, `[WARN] Save failed: ${result.error}`]);
+      setLogLines(prev => [...prev, stamp(`[WARN] Save failed: ${result.error}`)]);
     }
   }, []);
 
@@ -328,7 +328,7 @@ export default function App() {
 
   const handleLoadRender = useCallback(async (r: RecentRender) => {
     if (status === 'rendering') {
-      setLogLines(prev => [...prev, '[WARN] Stop the current render before loading a recent one.']);
+      setLogLines(prev => [...prev, stamp('[WARN] Stop the current render before loading a recent one.')]);
       return;
     }
     const result = await getApi().load_render(r.path);
@@ -336,7 +336,7 @@ export default function App() {
       setVideoUrl(result.videoUrl);
       setStatus('done');
     } else {
-      setLogLines(prev => [...prev, `[WARN] Could not load: ${result.error ?? 'File not found'}`]);
+      setLogLines(prev => [...prev, stamp(`[WARN] Could not load: ${result.error ?? 'File not found'}`)]);
     }
   }, [status]);
 

@@ -18,9 +18,38 @@ if getattr(sys, "frozen", False) and sys.platform == "win32" and "--run-manim" i
 # so launch failures are visible. Must come before any import that could fail.
 # Only for the main UI process (not --run-manim subprocesses, handled above).
 elif getattr(sys, "frozen", False) and sys.platform == "win32":
+    import time as _time
+
+    class _TimestampStream:
+        """Wrap a text stream and prefix each line with [YYYY-MM-DD HH:MM:SS].
+        Used for crash.log so startup prints and tracebacks are timestamped
+        (a single print() does write(msg) then write('\\n'), so we track
+        whether we're at the start of a line across writes)."""
+        def __init__(self, stream):
+            self._stream = stream
+            self._at_bol = True
+        def write(self, s):
+            if not s:
+                return 0
+            ts = _time.strftime("[%Y-%m-%d %H:%M:%S] ")
+            out = []
+            for line in s.splitlines(keepends=True):
+                if self._at_bol:
+                    out.append(ts)
+                out.append(line)
+                self._at_bol = line.endswith("\n")
+            self._stream.write("".join(out))
+            return len(s)
+        def flush(self):
+            self._stream.flush()
+        def __getattr__(self, name):
+            return getattr(self._stream, name)
+
     _log_dir = os.path.join(os.path.expanduser("~"), "ManimStudio")
     os.makedirs(_log_dir, exist_ok=True)
-    _log = open(os.path.join(_log_dir, "crash.log"), "w", buffering=1, encoding="utf-8")
+    _log = _TimestampStream(
+        open(os.path.join(_log_dir, "crash.log"), "w", buffering=1, encoding="utf-8")
+    )
     sys.stdout = _log
     sys.stderr = _log
 

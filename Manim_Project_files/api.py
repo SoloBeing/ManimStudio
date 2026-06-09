@@ -1,5 +1,5 @@
 import sys, os, re, json, shutil, threading, http.server, socket, platform
-import hashlib
+import hashlib, time
 
 import webview
 
@@ -547,9 +547,18 @@ class Api:
                 continue
             shutil.rmtree(d, ignore_errors=True)
 
+    @staticmethod
+    def _stamp(msg: str) -> str:
+        # Prefix a [HH:MM:SS] timestamp so build-log lines can be correlated.
+        # Blank/whitespace spacer lines (manim emits many for formatting) are
+        # left untouched so they stay visually dim and uncluttered.
+        if not msg.strip():
+            return msg
+        return f"[{time.strftime('%H:%M:%S')}] {msg}"
+
     def _on_log(self, msg: str):
         with self._lock:
-            self._log_lines.append(msg)
+            self._log_lines.append(self._stamp(msg))
             # The OpenGL render path constructs scenes as SceneClass(renderer),
             # passing renderer positionally — so a custom __init__ that doesn't
             # accept a positional arg fails with this exact TypeError. Cairo
@@ -558,11 +567,11 @@ class Api:
             if (self._render_opengl and not self._init_hint_emitted
                     and "__init__()" in msg and "positional argument" in msg):
                 self._init_hint_emitted = True
-                self._log_lines.append(
+                self._log_lines.append(self._stamp(
                     "[HINT] OpenGL passes the renderer to your scene positionally. "
                     "Give your scene 'def __init__(self, *args, **kwargs): "
                     "super().__init__(*args, ...)', or turn off OpenGL in Settings."
-                )
+                ))
 
     def _on_done(self, video_path: str):
         stem = self._thread.render_stem if self._thread else ""
