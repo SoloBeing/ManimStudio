@@ -1,5 +1,5 @@
 import sys, os, re, json, shutil, threading, http.server, socket, platform
-import subprocess, hashlib
+import hashlib
 
 import webview
 
@@ -14,17 +14,6 @@ import builders
 # easy to purge wholesale on shutdown.
 _PREVIEW_DIR = os.path.join(os.path.expanduser("~"), "ManimStudio", "previews")
 
-
-def _ffmpeg_exe() -> str:
-    """Locate an ffmpeg binary: system PATH first, then manim's imageio-ffmpeg."""
-    exe = shutil.which("ffmpeg")
-    if exe:
-        return exe
-    try:
-        import imageio_ffmpeg
-        return imageio_ffmpeg.get_ffmpeg_exe()
-    except Exception:
-        return ""
 
 _FPS_LIST = ["60", "30", "24", "15"]
 
@@ -485,9 +474,15 @@ class Api:
         return proxy if self._transcode_webm(path, proxy) else path
 
     def _transcode_webm(self, src: str, dst: str) -> bool:
-        ff = _ffmpeg_exe()
-        if not ff:
-            self._on_log("[WARN] ffmpeg not found — preview unavailable for this format")
+        # Transcode via PyAV (bundled by manim — manim v0.20 encodes through
+        # `av`, so libvpx VP8/VP9 + H.264 decode are guaranteed present in the
+        # frozen build). Deliberately NOT shelling out to an ffmpeg binary: the
+        # PyInstaller bundle ships none, so a CLI call would leave mp4/mov
+        # preview blank on end-user machines without system ffmpeg.
+        try:
+            import av
+        except Exception:
+            self._on_log("[WARN] PyAV unavailable — preview unavailable for this format")
             return False
         try:
             os.makedirs(_PREVIEW_DIR, exist_ok=True)
@@ -495,17 +490,24 @@ class Api:
             return False
         tmp = dst + ".part"
         self._on_log("[INFO] generating preview…")
+        ok = False
         try:
-            r = subprocess.run(
-                [ff, "-y", "-i", src,
-                 "-c:v", "libvpx", "-deadline", "realtime", "-cpu-used", "5",
-                 "-b:v", "1M", "-an", "-f", "webm", tmp],
-                capture_output=True, text=True, timeout=180,
-            )
-        except (subprocess.TimeoutExpired, OSError) as e:
+            with av.open(src) as inp, av.open(tmp, mode="w", format="webm") as out:
+                ist = inp.streams.video[0]
+                w, h = ist.codec_context.width, ist.codec_context.height
+                ost = out.add_stream("libvpx", rate=ist.average_rate or 30)
+                ost.width, ost.height, ost.pix_fmt = w, h, "yuv420p"
+                ost.options = {"deadline": "realtime", "cpu-used": "5", "b": "1M"}
+                for frame in inp.decode(ist):
+                    frame = frame.reformat(width=w, height=h, format="yuv420p")
+                    for pkt in ost.encode(frame):
+                        out.mux(pkt)
+                for pkt in ost.encode():
+                    out.mux(pkt)
+            ok = os.path.exists(tmp)
+        except Exception as e:
             self._on_log(f"[WARN] preview transcode failed: {e}")
-            r = None
-        ok = bool(r) and r.returncode == 0 and os.path.exists(tmp)
+            ok = False
         if ok:
             try:
                 os.replace(tmp, dst)
