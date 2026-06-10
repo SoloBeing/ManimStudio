@@ -14,6 +14,44 @@ import builders
 # easy to purge wholesale on shutdown.
 _PREVIEW_DIR = os.path.join(os.path.expanduser("~"), "ManimStudio", "previews")
 
+# User-facing activity log: every action that crosses the JS→Python bridge
+# (renders, saves, discards, loads, setting changes) gets a timestamped line,
+# appended across sessions. Distinct from crash.log (startup/exceptions) and
+# the per-render build log (Manim output).
+_ACTIVITY_LOG = os.path.join(os.path.expanduser("~"), "ManimStudio", "activity.log")
+_ACTIVITY_CAP = 1_000_000  # bytes; above this the oldest half is trimmed at startup
+
+_activity_lock = threading.Lock()
+
+
+def _log_activity(msg: str):
+    """Append a timestamped line to the activity log. Never raises — a logging
+    failure must not break the user action being logged."""
+    try:
+        with _activity_lock:
+            os.makedirs(os.path.dirname(_ACTIVITY_LOG), exist_ok=True)
+            with open(_ACTIVITY_LOG, "a", encoding="utf-8") as f:
+                f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}\n")
+    except Exception:
+        pass
+
+
+def _trim_activity_log():
+    """Keep activity.log bounded: once it grows past _ACTIVITY_CAP, drop the
+    oldest entries and keep the most recent ~half, starting at a line boundary."""
+    try:
+        with _activity_lock:
+            if os.path.getsize(_ACTIVITY_LOG) <= _ACTIVITY_CAP:
+                return
+            with open(_ACTIVITY_LOG, "rb") as f:
+                f.seek(-(_ACTIVITY_CAP // 2), os.SEEK_END)
+                tail = f.read()
+            tail = tail[tail.find(b"\n") + 1:]
+            with open(_ACTIVITY_LOG, "wb") as f:
+                f.write(b"[older entries trimmed]\n" + tail)
+    except OSError:
+        pass
+
 
 _FPS_LIST = ["60", "30", "24", "15"]
 
@@ -92,9 +130,12 @@ _MEDIA_SUBDIRS = ("videos", "images", "texts", "Tex")
 
 class Api:
     def __init__(self):
+        _trim_activity_log()
+        _log_activity(f"=== Session started ({platform.platform()}) ===")
         self._window      = None
         self._thread      = None
         self._lock        = threading.Lock()
+        self._session_ended = False  # one-shot guard for the session-end log line
         self._log_lines   = []
         self._status      = "idle"   # idle | rendering | done | error | stopped
         self._video_path  = ""       # real output file (what Save copies)
@@ -196,6 +237,7 @@ class Api:
         try:
             os.makedirs(os.path.dirname(_LATEX_WARNED_FLAG), exist_ok=True)
             open(_LATEX_WARNED_FLAG, "w").close()
+            _log_activity("LaTeX warning dismissed")
             return {"ok": True}
         except OSError as e:
             return {"ok": False, "error": str(e)}
@@ -203,6 +245,22 @@ class Api:
     def render(self, mode: str, params_json: str, scene_name: str = "",
                quality: str = "Med  720p", fps: str = "30",
                opengl: bool = False, fmt: str = DEFAULT_FORMAT) -> dict:
+        _log_activity(
+            f"Render requested: mode={mode}, scene={scene_name or '(default)'}, "
+            f"quality={quality}, fps={fps}, format={fmt}, opengl={opengl}"
+        )
+        result = self._render_impl(mode, params_json, scene_name, quality, fps,
+                                   opengl, fmt)
+        if result.get("ok"):
+            _log_activity("Render started")
+        else:
+            _log_activity(f"Render rejected: {result.get('error', 'unknown')}")
+        return result
+
+    # Underscore prefix keeps this off the JS bridge — render() above is the
+    # public entry point and logs the request/outcome around it.
+    def _render_impl(self, mode: str, params_json: str, scene_name: str,
+                     quality: str, fps: str, opengl: bool, fmt: str) -> dict:
         with self._lock:
             if self._thread and self._thread.is_alive():
                 return {"ok": False, "error": "Render already in progress"}
@@ -290,6 +348,7 @@ class Api:
             with self._lock:
                 self._status = "stopped"
             self._push({"status": "stopped"})
+            _log_activity("Render stopped by user")
         return {"ok": True}
 
     def get_state(self) -> dict:
@@ -319,6 +378,7 @@ class Api:
             if new_dir not in self._allowed_dirs:
                 self._allowed_dirs.append(new_dir)
             self._output_dir = result[0]
+            _log_activity(f"Output directory changed: {result[0]}")
             return result[0]
         return ""
 
@@ -338,17 +398,20 @@ class Api:
             file_types=(f"{label} (*{ext})",),
         )
         if not result:
+            _log_activity("Save cancelled")
             return {"ok": False, "error": "Cancelled"}
         dest = result if isinstance(result, str) else result[0]
         try:
             shutil.copy2(path, dest)
         except OSError as e:
+            _log_activity(f"Save failed: {e}")
             return {"ok": False, "error": str(e)}
         # Keep the render available so it can be saved again (e.g. to another
         # location). State and temp artifacts are cleared by discard_render,
         # the next render, or app cleanup.
         with self._lock:
             self._render_saved = True
+        _log_activity(f"Render saved to {dest}")
         return {"ok": True, "path": dest}
 
     def discard_render(self) -> dict:
@@ -361,9 +424,11 @@ class Api:
             self._render_is_loaded = False
             self._status       = "idle"
         self._cleanup_render_artifacts(stem)
+        _log_activity("Render discarded")
         return {"ok": True}
 
     def confirm_close(self) -> dict:
+        _log_activity("Window close confirmed (unsaved render abandoned)")
         if self._window:
             self._window.destroy()
         return {"ok": True}
@@ -392,6 +457,7 @@ class Api:
         try:
             if os.path.exists(_RECENT_RENDERS_FILE):
                 os.remove(_RECENT_RENDERS_FILE)
+            _log_activity("Recent renders cleared")
             return {"ok": True}
         except Exception as e:
             return {"ok": False, "error": str(e)}
@@ -399,9 +465,11 @@ class Api:
     def load_render(self, path: str) -> dict:
         path = os.path.expanduser(path)
         if not os.path.exists(path):
+            _log_activity(f"Load recent render failed (file not found): {path}")
             return {"ok": False, "error": "File not found"}
         with self._lock:
             if self._thread and self._thread.is_alive():
+                _log_activity("Load recent render refused: render in progress")
                 return {"ok": False, "error": "Stop the current render before loading"}
         abs_path = os.path.abspath(path)
         is_image = abs_path.lower().endswith((".png", ".gif", ".jpg", ".jpeg"))
@@ -425,6 +493,7 @@ class Api:
         # keep_path guards the rare case of loading a file that lives under the
         # previous render's own stem (don't delete what we're about to show).
         self._cleanup_render_artifacts(prev_stem, keep_path=abs_path)
+        _log_activity(f"Loaded recent render: {abs_path}")
         return {"ok": True, "videoUrl": self._video_url(disp_path), "isImage": is_image}
 
     # ------------------------------------------------------------------
@@ -432,6 +501,11 @@ class Api:
         with self._lock:
             t    = self._thread
             stem = self._render_stem
+            already_ended = self._session_ended
+            self._session_ended = True
+        # cleanup can run twice (atexit + SIGTERM handler) — log the end once
+        if not already_ended:
+            _log_activity("=== Session ended ===")
         # During a render _render_stem is "", so fall back to the thread's stem
         if not stem and t is not None:
             stem = t.render_stem or ""
@@ -586,6 +660,7 @@ class Api:
                 self._render_saved = False
                 self._status       = "done"
             self._push({"status": "done", "videoUrl": self._video_url(preview_path)})
+            _log_activity(f"Render finished: {video_path}")
         else:
             with self._lock:
                 status = self._status
@@ -593,6 +668,7 @@ class Api:
                 with self._lock:
                     self._status = "error"
                 self._push({"status": "error"})
+                _log_activity("Render failed")
             self._cleanup_render_artifacts(stem)
 
     def _video_url(self, path: str) -> str:
