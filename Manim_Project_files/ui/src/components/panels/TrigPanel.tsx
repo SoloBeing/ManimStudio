@@ -32,6 +32,9 @@ export function TrigPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
   const [cosPhase, setCosPhase] = useState(0.0);
   const [tanPhase, setTanPhase] = useState(0.0);
   const [curveStroke, setCurveStroke] = useState(2.5);
+  const [sinLabel, setSinLabel] = useState('');
+  const [cosLabel, setCosLabel] = useState('');
+  const [tanLabel, setTanLabel] = useState('');
   const [camZoom, setCamZoom] = useState(1.0);
   const [text, setText] = useState<TextParams>({ ...DEFAULT_TEXT, text_position: 'top_right' });
 
@@ -45,6 +48,7 @@ export function TrigPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
         sin_color: sinColor, cos_color: cosColor, tan_color: tanColor,
         sin_phase: sinPhase, cos_phase: cosPhase, tan_phase: tanPhase,
         curve_stroke: curveStroke,
+        sin_label: sinLabel, cos_label: cosLabel, tan_label: tanLabel,
         cam_zoom: camZoom,
         ...text,
       },
@@ -104,6 +108,31 @@ export function TrigPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
           {showSin && <Knob label="Sin Δp" min={-6.3} max={6.3} value={sinPhase} onChange={setSinPhase} />}
           {showCos && <Knob label="Cos Δp" min={-6.3} max={6.3} value={cosPhase} onChange={setCosPhase} />}
           {showTan && <Knob label="Tan Δp" min={-6.3} max={6.3} value={tanPhase} onChange={setTanPhase} />}
+        </>
+      )}
+
+      {text.show_preset_labels && (showSin || showCos || showTan) && (
+        <>
+          <div className="sec-sep" />
+          <div className="sec-hdr">Curve Labels</div>
+          {showSin && (
+            <div className="field-row">
+              <label>Sin</label>
+              <input className="app-input" placeholder="sin" value={sinLabel} onChange={e => setSinLabel(e.target.value)} />
+            </div>
+          )}
+          {showCos && (
+            <div className="field-row">
+              <label>Cos</label>
+              <input className="app-input" placeholder="cos" value={cosLabel} onChange={e => setCosLabel(e.target.value)} />
+            </div>
+          )}
+          {showTan && (
+            <div className="field-row">
+              <label>Tan</label>
+              <input className="app-input" placeholder="tan" value={tanLabel} onChange={e => setTanLabel(e.target.value)} />
+            </div>
+          )}
         </>
       )}
 

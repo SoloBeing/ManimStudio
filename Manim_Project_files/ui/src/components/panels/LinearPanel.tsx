@@ -35,6 +35,8 @@ export function LinearPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
   const [transformGrid, setTransformGrid] = useState(false);
   const [keepOriginalGrid, setKeepOriginalGrid] = useState(false);
   const [camZoom, setCamZoom] = useState(1.0);
+  const [e1Label, setE1Label] = useState('');
+  const [e2Label, setE2Label] = useState('');
   const [text, setText] = useState<TextParams>({ ...DEFAULT_TEXT });
 
   // Nonlinear state
@@ -69,7 +71,7 @@ export function LinearPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
             a, b, c, d, vx, vy,
             show_det: showDet, show_basis: showBasis, show_grid: showGrid,
             transform_grid: transformGrid, keep_original_grid: keepOriginalGrid,
-            cam_zoom: camZoom,
+            cam_zoom: camZoom, e1_label: e1Label, e2_label: e2Label,
             ...text,
           },
         },
@@ -128,6 +130,19 @@ export function LinearPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
                 <label className="app-check"><input type="checkbox" checked={keepOriginalGrid} onChange={e => setKeepOriginalGrid(e.target.checked)} /> Keep original (ghost)</label>
               )}
             </div>
+          )}
+
+          {showBasis && text.show_preset_labels && (
+            <>
+              <div className="sec-sep" />
+              <div className="sec-hdr">Basis Labels</div>
+              <div className="field-row">
+                <label>î</label>
+                <input className="app-input" placeholder="e1" value={e1Label} onChange={e => setE1Label(e.target.value)} />
+                <label style={{ minWidth: 24, textAlign: 'center' }}>ĵ</label>
+                <input className="app-input" placeholder="e2" value={e2Label} onChange={e => setE2Label(e.target.value)} />
+              </div>
+            </>
           )}
 
           <div className="sec-sep" />

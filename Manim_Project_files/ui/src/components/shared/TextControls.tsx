@@ -118,6 +118,22 @@ export function TextControls({ value, onChange }: TextControlsProps) {
               value={value.text_content}
               onChange={e => set('text_content', e.target.value)} />
           </div>
+          {value.show_preset_labels && (
+            <>
+              <div className="field-row">
+                <label>Title</label>
+                <input className="app-input" placeholder="Override preset title…"
+                  value={value.preset_title}
+                  onChange={e => set('preset_title', e.target.value)} />
+              </div>
+              <div className="field-row">
+                <label>Subtitle</label>
+                <input className="app-input" placeholder="Where applicable…"
+                  value={value.preset_subtitle}
+                  onChange={e => set('preset_subtitle', e.target.value)} />
+              </div>
+            </>
+          )}
           <div className="field-row">
             <label>Position</label>
             <select className="app-select" value={value.text_position}

@@ -36,6 +36,8 @@ export interface SystemInfo {
 
 export interface TextParams {
   text_content: string;
+  preset_title: string;
+  preset_subtitle: string;
   text_position: string;
   text_color: string;
   text_font: string;
@@ -52,6 +54,8 @@ export interface TextParams {
 
 export const DEFAULT_TEXT: TextParams = {
   text_content: '',
+  preset_title: '',
+  preset_subtitle: '',
   text_position: 'top_left',
   text_color: 'white',
   text_font: 'Arial',

@@ -139,8 +139,10 @@ def build_trig_source(
     sin_color="blue", cos_color="red", tan_color="green",
     yr=4.5, cam_zoom=1.0,
     sin_phase=0.0, cos_phase=0.0, tan_phase=0.0, curve_stroke=2.5,
+    sin_label="", cos_label="", tan_label="",
     text_position="top_right", text_color="white", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
+    preset_title="", preset_subtitle="",
     bold=False, italic=False, stroke_width=0, stroke_color="white",
     x_offset=0, y_offset=0, gradient="none",
 ):
@@ -202,11 +204,11 @@ def build_trig_source(
 
     graphs = []
     if show_sin:
-        graphs.append((f"{A:.4f}*np.sin({w:.4f}*x + {ph_sin:.4f}) + {D:.4f}", c_sin, "sin"))
+        graphs.append((f"{A:.4f}*np.sin({w:.4f}*x + {ph_sin:.4f}) + {D:.4f}", c_sin, sin_label or "sin"))
     if show_cos:
-        graphs.append((f"{A:.4f}*np.cos({w:.4f}*x + {ph_cos:.4f}) + {D:.4f}", c_cos, "cos"))
+        graphs.append((f"{A:.4f}*np.cos({w:.4f}*x + {ph_cos:.4f}) + {D:.4f}", c_cos, cos_label or "cos"))
     if show_tan:
-        graphs.append((f"{A:.4f}*np.tan({w:.4f}*x + {ph_tan:.4f}) + {D:.4f}", c_tan, "tan"))
+        graphs.append((f"{A:.4f}*np.tan({w:.4f}*x + {ph_tan:.4f}) + {D:.4f}", c_tan, tan_label or "tan"))
 
     tkw = _text_kwargs(font, fs, txt_col, bold, italic, stroke_width, stroke_col)
     for i, (expr, color, name) in enumerate(graphs):
@@ -262,6 +264,7 @@ def build_complex_source(
     mode, re_c, im_c, scale, n_pts, show_arrows,
     text_position="top_left", text_color="teal", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
+    preset_title="", preset_subtitle="",
     bold=False, italic=False, stroke_width=0, stroke_color="white",
     x_offset=0, y_offset=0, gradient="none",
     custom_fn="z**2", cam_zoom=1.0, anim_style="vectors",
@@ -336,14 +339,14 @@ def build_complex_source(
         _place_custom_lbl(L, text_content, font, fs, txt_col, bold, italic,
                           stroke_width, stroke_col, pos_call, gradient, x_offset, y_offset)
         if show_preset_labels:
-            L.append(_text_line("title", mode, font, fs_sub, txt_col, bold, italic, stroke_width, stroke_col, gradient))
+            L.append(_text_line("title", (preset_title or mode), font, fs_sub, txt_col, bold, italic, stroke_width, stroke_col, gradient))
             L.append(f"        title.next_to(custom_lbl, {stack_dir}, buff=0.12)")
             L.append("        self.play(Create(plane), FadeIn(custom_lbl), FadeIn(title), run_time=1.2)")
         else:
             L.append("        self.play(Create(plane), FadeIn(custom_lbl), run_time=1.2)")
     else:
         if show_preset_labels:
-            L.append(_text_line("title", mode, font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
+            L.append(_text_line("title", (preset_title or mode), font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
             L.append(_place_label("title", pos_call, x_offset, y_offset))
             L.append("        self.play(Create(plane), FadeIn(title), run_time=1.2)")
         else:
@@ -394,8 +397,10 @@ def build_complex_source(
 def build_linear_source(
     a, b, c, d, vx, vy, show_det, show_basis, show_grid,
     cam_zoom=1.0, transform_grid=False, keep_original_grid=False,
+    e1_label="", e2_label="",
     text_position="top_left", text_color="white", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
+    preset_title="", preset_subtitle="",
     bold=False, italic=False, stroke_width=0, stroke_color="white",
     x_offset=0, y_offset=0, gradient="none",
 ):
@@ -454,9 +459,9 @@ def build_linear_source(
             "                   buff=0, stroke_width=4, max_tip_length_to_length_ratio=0.2)",
         ]
         if show_preset_labels:
-            L.append(_text_line("e1_lbl", "e1", font, fs_sm, txt_col, bold, italic, stroke_width, stroke_col, gradient))
+            L.append(_text_line("e1_lbl", e1_label or "e1", font, fs_sm, txt_col, bold, italic, stroke_width, stroke_col, gradient))
             L.append("        e1_lbl.next_to(axes.c2p(1,0), UR, buff=0.1)")
-            L.append(_text_line("e2_lbl", "e2", font, fs_sm, txt_col, bold, italic, stroke_width, stroke_col, gradient))
+            L.append(_text_line("e2_lbl", e2_label or "e2", font, fs_sm, txt_col, bold, italic, stroke_width, stroke_col, gradient))
             L.append("        e2_lbl.next_to(axes.c2p(0,1), UR, buff=0.1)")
             L.append("        self.play(GrowArrow(e1), GrowArrow(e2), FadeIn(e1_lbl, e2_lbl), run_time=0.8)")
         else:
@@ -566,6 +571,7 @@ def build_nonlinear_source(
     mode, intensity, scale, show_grid, show_points,
     text_position="top_left", text_color="teal", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
+    preset_title="", preset_subtitle="",
     bold=False, italic=False, stroke_width=0, stroke_color="white",
     x_offset=0, y_offset=0, gradient="none",
 ):
@@ -627,6 +633,8 @@ def build_nonlinear_source(
         ),
     }
     title, subtitle, body = preset_map[mode]
+    title    = preset_title    or title
+    subtitle = preset_subtitle or subtitle
 
     tkw     = _text_kwargs(font, fs,     txt_col, bold, italic, stroke_width, stroke_col)
     tkw_sub = _text_kwargs(font, fs_sub, txt_col, bold, italic, stroke_width, stroke_col)
@@ -704,6 +712,7 @@ def build_code_source(
     code_str, language, anim, background, add_line_numbers, font_size, run_time,
     text_position="top_left", text_color="white", text_font="Consolas",
     text_content="", text_font_size=22, show_preset_labels=True,
+    preset_title="", preset_subtitle="",
     bold=False, italic=False, stroke_width=0, stroke_color="white",
     x_offset=0, y_offset=0, gradient="none",
 ):
@@ -798,6 +807,7 @@ def build_streamlines_source(
     color_scheme="default", cam_zoom=1.0,
     text_position="top_left", text_color="teal", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
+    preset_title="", preset_subtitle="",
     bold=False, italic=False, stroke_width=0, stroke_color="white",
     x_offset=0, y_offset=0, gradient="none",
 ):
@@ -839,6 +849,7 @@ def build_streamlines_source(
         ),
     }
     title, expr, subtitle = field_map[mode]
+    subtitle = preset_subtitle or subtitle
     step = max(0.2, float(spacing))
 
     tkw     = _text_kwargs(font, fs,     txt_col, bold, italic, stroke_width, stroke_col)
@@ -863,7 +874,7 @@ def build_streamlines_source(
 
     if show_preset_labels:
         title_fs = fs_sub if text_content else fs
-        L.append(_text_line("title", f"{title} StreamLines", font, title_fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
+        L.append(_text_line("title", preset_title or f"{title} StreamLines", font, title_fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
         if text_content:
             L.append(f"        title.next_to(custom_lbl, {subtitle_dir}, buff=0.12)")
         else:
@@ -952,6 +963,7 @@ def build_geometry_source(
     shape_stroke_width, anim, cam_zoom=1.0, count=1, arrangement="row",
     text_position="top_left", text_color="white", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
+    preset_title="", preset_subtitle="",
     bold=False, italic=False, stroke_width=0, stroke_color="white",
     x_offset=0, y_offset=0, gradient="none",
 ):
@@ -1038,7 +1050,7 @@ def build_geometry_source(
 
     if show_preset_labels:
         name_map = {"doublearrow": "Double Arrow"}
-        disp = name_map.get(shape_lower, shape_lower.replace("_", " ").title())
+        disp = preset_title or name_map.get(shape_lower, shape_lower.replace("_", " ").title())
         L.append(_text_line("lbl", disp, font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
         if text_content:
             L.append(f"        lbl.next_to(custom_lbl, {stack_dir}, buff=0.12)")
@@ -1064,6 +1076,7 @@ def build_barchart_source(
     x_label="", y_label="", bar_width=0.6,
     text_position="top_left", text_color="white", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
+    preset_title="", preset_subtitle="",
     bold=False, italic=False, stroke_width=0, stroke_color="white",
     x_offset=0, y_offset=0, gradient="none",
 ):
@@ -1134,7 +1147,7 @@ def build_barchart_source(
                           stroke_width, stroke_col, pos_call, gradient, x_offset, y_offset)
 
     if show_preset_labels:
-        L.append(_text_line("title", "Bar Chart", font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
+        L.append(_text_line("title", preset_title or "Bar Chart", font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
         if text_content:
             L.append(f"        title.next_to(custom_lbl, {stack_dir}, buff=0.12)")
         else:
@@ -1258,6 +1271,7 @@ def build_surface3d_source(
     fill_opacity=1.0, surf_stroke_width=0.5,
     text_position="top_left", text_color="white", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
+    preset_title="", preset_subtitle="",
     bold=False, italic=False, stroke_width=0, stroke_color="white",
     x_offset=0, y_offset=0, gradient="none",
 ):
@@ -1315,7 +1329,7 @@ def build_surface3d_source(
             _place_custom_lbl(L, text_content, font, fs, txt_col, bold, italic,
                               stroke_width, stroke_col, pos_call, gradient, x_offset, y_offset)
         if show_preset_labels:
-            L.append(_text_line("title", surf["title"], font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
+            L.append(_text_line("title", preset_title or surf["title"], font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
             if text_content:
                 L.append(f"        title.next_to(custom_lbl, {stack_dir}, buff=0.12)")
             else:
@@ -1373,6 +1387,7 @@ def build_numberline_source(
     show_func=False, func_expr='x^2', func_color='yellow', show_vline=True,
     text_position="top_left", text_color="white", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
+    preset_title="", preset_subtitle="",
     bold=False, italic=False, stroke_width=0, stroke_color="white",
     x_offset=0, y_offset=0, gradient="none",
 ):
@@ -1477,7 +1492,7 @@ def build_numberline_source(
                           stroke_width, stroke_col, pos_call, gradient, x_offset, y_offset)
 
     if show_preset_labels:
-        L.append(_text_line("title", "Number Line", font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
+        L.append(_text_line("title", preset_title or "Number Line", font, fs, txt_col, bold, italic, stroke_width, stroke_col, gradient))
         if text_content:
             L.append(f"        title.next_to(custom_lbl, {stack_dir}, buff=0.12)")
         else:
