@@ -138,6 +138,7 @@ def build_trig_source(
     show_sin, show_cos, show_tan, A, w, ph, D, xr, show_grid, anim,
     sin_color="blue", cos_color="red", tan_color="green",
     yr=4.5, cam_zoom=1.0,
+    sin_phase=0.0, cos_phase=0.0, tan_phase=0.0, curve_stroke=2.5,
     text_position="top_right", text_color="white", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
     bold=False, italic=False, stroke_width=0, stroke_color="white",
@@ -192,13 +193,20 @@ def build_trig_source(
     c_cos = _text_color(cos_color or "red")
     c_tan = _text_color(tan_color or "green")
 
+    # Each curve can carry its own phase offset on top of the shared phase `ph`,
+    # so relationships like cos = sin shifted by pi/2 can be shown directly.
+    ph_sin = float(ph) + float(sin_phase or 0.0)
+    ph_cos = float(ph) + float(cos_phase or 0.0)
+    ph_tan = float(ph) + float(tan_phase or 0.0)
+    cs = max(0.5, float(curve_stroke or 2.5))
+
     graphs = []
     if show_sin:
-        graphs.append((f"{A:.4f}*np.sin({w:.4f}*x + {ph:.4f}) + {D:.4f}", c_sin, "sin"))
+        graphs.append((f"{A:.4f}*np.sin({w:.4f}*x + {ph_sin:.4f}) + {D:.4f}", c_sin, "sin"))
     if show_cos:
-        graphs.append((f"{A:.4f}*np.cos({w:.4f}*x + {ph:.4f}) + {D:.4f}", c_cos, "cos"))
+        graphs.append((f"{A:.4f}*np.cos({w:.4f}*x + {ph_cos:.4f}) + {D:.4f}", c_cos, "cos"))
     if show_tan:
-        graphs.append((f"{A:.4f}*np.tan({w:.4f}*x + {ph:.4f}) + {D:.4f}", c_tan, "tan"))
+        graphs.append((f"{A:.4f}*np.tan({w:.4f}*x + {ph_tan:.4f}) + {D:.4f}", c_tan, "tan"))
 
     tkw = _text_kwargs(font, fs, txt_col, bold, italic, stroke_width, stroke_col)
     for i, (expr, color, name) in enumerate(graphs):
@@ -208,7 +216,7 @@ def build_trig_source(
             f"        {g} = axes.plot(",
             f"            lambda x: {expr},",
             f"            x_range=[{-xr:.2f}, {xr:.2f}, 0.05],",
-            f"            color={color}, stroke_width=2.5, use_smoothing=True,",
+            f"            color={color}, stroke_width={cs:.2f}, use_smoothing=True,",
             "        )",
         ]
         if show_preset_labels:
@@ -385,6 +393,7 @@ def build_complex_source(
 
 def build_linear_source(
     a, b, c, d, vx, vy, show_det, show_basis, show_grid,
+    cam_zoom=1.0, transform_grid=False,
     text_position="top_left", text_color="white", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
     bold=False, italic=False, stroke_width=0, stroke_color="white",
@@ -406,10 +415,15 @@ def build_linear_source(
     tkw_sm  = _text_kwargs(font, fs_sm, txt_col, bold, italic, stroke_width, stroke_col)
     tkw_det = _text_kwargs(font, fs,    det_col, bold, italic, stroke_width, stroke_col)
 
-    L = [
-        "from manim import *",
-        "import numpy as np",
-        "",
+    L = ["from manim import *", "import numpy as np", ""]
+    zoom_f = float(cam_zoom or 1.0)
+    if abs(zoom_f - 1.0) > 0.02:
+        L += [
+            f"config.frame_width  = {14.222 / zoom_f:.3f}",
+            f"config.frame_height = {8.0    / zoom_f:.3f}",
+            "",
+        ]
+    L += [
         "class ManimScene(Scene):",
         "    def construct(self):",
         f"        M = np.array([[{a:.6f}, {b:.6f}], [{c:.6f}, {d:.6f}]])",
@@ -509,20 +523,26 @@ def build_linear_source(
             "                     buff=0, stroke_width=4, max_tip_length_to_length_ratio=0.2)",
             "        e2_t = Arrow(axes.c2p(0,0), axes.c2p(te2[0], te2[1]), color=RED_B,",
             "                     buff=0, stroke_width=4, max_tip_length_to_length_ratio=0.2)",
-            "        self.play(",
-            "            Transform(vec, tvec),",
-            "            Transform(e1, e1_t), Transform(e2, e2_t),",
-            *(["            FadeOut(vec_lbl), FadeOut(e1_lbl), FadeOut(e2_lbl),"] if show_preset_labels else []),
-            "            run_time=1.8,",
-            "        )",
         ]
-    else:
-        play_line = (
-            "        self.play(Transform(vec, tvec), FadeOut(vec_lbl), run_time=1.8)"
-            if show_preset_labels else
-            "        self.play(Transform(vec, tvec), run_time=1.8)"
-        )
-        L.append(play_line)
+    if show_grid and transform_grid:
+        L.append("        warped_grid = grid.copy().apply_function(apply_M)")
+
+    # Build the transform animation as a list so optional pieces (basis vectors,
+    # the warped grid, label fade-outs) can be composed without branching twice.
+    transforms = ["Transform(vec, tvec)"]
+    if show_basis:
+        transforms += ["Transform(e1, e1_t)", "Transform(e2, e2_t)"]
+    if show_grid and transform_grid:
+        transforms.append("Transform(grid, warped_grid)")
+    if show_preset_labels:
+        transforms.append("FadeOut(vec_lbl)")
+        if show_basis:
+            transforms += ["FadeOut(e1_lbl)", "FadeOut(e2_lbl)"]
+
+    L.append("        self.play(")
+    for t in transforms:
+        L.append(f"            {t},")
+    L += ["            run_time=1.8,", "        )"]
 
     if show_preset_labels:
         L.append("        self.play(FadeIn(tvec_lbl), FadeIn(res_lbl), run_time=0.5)")

@@ -28,6 +28,10 @@ export function TrigPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
   const [sinColor, setSinColor] = useState('blue');
   const [cosColor, setCosColor] = useState('red');
   const [tanColor, setTanColor] = useState('green');
+  const [sinPhase, setSinPhase] = useState(0.0);
+  const [cosPhase, setCosPhase] = useState(0.0);
+  const [tanPhase, setTanPhase] = useState(0.0);
+  const [curveStroke, setCurveStroke] = useState(2.5);
   const [camZoom, setCamZoom] = useState(1.0);
   const [text, setText] = useState<TextParams>({ ...DEFAULT_TEXT, text_position: 'top_right' });
 
@@ -39,6 +43,8 @@ export function TrigPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
         A, w, ph, D, xr, yr,
         show_grid: showGrid, anim,
         sin_color: sinColor, cos_color: cosColor, tan_color: tanColor,
+        sin_phase: sinPhase, cos_phase: cosPhase, tan_phase: tanPhase,
+        curve_stroke: curveStroke,
         cam_zoom: camZoom,
         ...text,
       },
@@ -89,6 +95,17 @@ export function TrigPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
       <Knob label="Vertical D"  min={-3.0} max={3.0} value={D}  onChange={setD} />
       <Knob label="X Range"     min={1.0}  max={8.0}  value={xr} onChange={setXr} decimals={1} step={0.5} />
       <Knob label="Y Range"     min={0.5}  max={8.0}  value={yr} onChange={setYr} decimals={1} step={0.5} />
+      <Knob label="Curve Width" min={0.5}  max={8.0}  value={curveStroke} onChange={setCurveStroke} decimals={1} step={0.5} />
+
+      {(showSin || showCos || showTan) && (
+        <>
+          <div className="sec-sep" />
+          <div className="sec-hdr">Per-Curve Phase</div>
+          {showSin && <Knob label="Sin Δp" min={-6.3} max={6.3} value={sinPhase} onChange={setSinPhase} />}
+          {showCos && <Knob label="Cos Δp" min={-6.3} max={6.3} value={cosPhase} onChange={setCosPhase} />}
+          {showTan && <Knob label="Tan Δp" min={-6.3} max={6.3} value={tanPhase} onChange={setTanPhase} />}
+        </>
+      )}
 
       <div className="sec-sep" />
       <div className="sec-hdr">Display</div>
