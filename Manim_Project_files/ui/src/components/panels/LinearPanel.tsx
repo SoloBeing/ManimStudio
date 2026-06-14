@@ -33,6 +33,7 @@ export function LinearPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
   const [showBasis, setShowBasis] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
   const [transformGrid, setTransformGrid] = useState(false);
+  const [keepOriginalGrid, setKeepOriginalGrid] = useState(false);
   const [camZoom, setCamZoom] = useState(1.0);
   const [text, setText] = useState<TextParams>({ ...DEFAULT_TEXT });
 
@@ -67,7 +68,8 @@ export function LinearPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
           params: {
             a, b, c, d, vx, vy,
             show_det: showDet, show_basis: showBasis, show_grid: showGrid,
-            transform_grid: transformGrid, cam_zoom: camZoom,
+            transform_grid: transformGrid, keep_original_grid: keepOriginalGrid,
+            cam_zoom: camZoom,
             ...text,
           },
         },
@@ -122,6 +124,9 @@ export function LinearPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
           {showGrid && (
             <div className="check-row">
               <label className="app-check"><input type="checkbox" checked={transformGrid} onChange={e => setTransformGrid(e.target.checked)} /> Warp grid under M</label>
+              {transformGrid && (
+                <label className="app-check"><input type="checkbox" checked={keepOriginalGrid} onChange={e => setKeepOriginalGrid(e.target.checked)} /> Keep original (ghost)</label>
+              )}
             </div>
           )}
 

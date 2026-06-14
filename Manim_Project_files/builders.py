@@ -393,7 +393,7 @@ def build_complex_source(
 
 def build_linear_source(
     a, b, c, d, vx, vy, show_det, show_basis, show_grid,
-    cam_zoom=1.0, transform_grid=False,
+    cam_zoom=1.0, transform_grid=False, keep_original_grid=False,
     text_position="top_left", text_color="white", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
     bold=False, italic=False, stroke_width=0, stroke_color="white",
@@ -525,6 +525,14 @@ def build_linear_source(
             "                     buff=0, stroke_width=4, max_tip_length_to_length_ratio=0.2)",
         ]
     if show_grid and transform_grid:
+        if keep_original_grid:
+            # Leave a faded static copy of the pre-transform grid behind the
+            # warped one, so the before/after relationship stays visible.
+            L += [
+                "        ghost_grid = grid.copy().set_opacity(0.18)",
+                "        self.add(ghost_grid)",
+                "        self.bring_to_back(ghost_grid)",
+            ]
         L.append("        warped_grid = grid.copy().apply_function(apply_M)")
 
     # Build the transform animation as a list so optional pieces (basis vectors,
