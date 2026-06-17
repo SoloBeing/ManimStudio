@@ -5,6 +5,35 @@ def _join(lines):
     return "\n".join(lines) + "\n"
 
 
+def _validate_expr(expr, label, default=""):
+    """Validate a user-supplied Python expression destined for generated source.
+
+    Parses it (mode="eval") and walks the AST against the shared security
+    blocklists. Returns the cleaned expression; raises ValueError with a
+    friendly message on bad syntax or a blocked call/attribute. An empty
+    expression falls back to ``default`` if one is given.
+    """
+    expr = (expr or "").strip()
+    if not expr:
+        if default:
+            return default
+        raise ValueError(f"{label} cannot be empty.")
+    try:
+        tree = _ast.parse(expr, mode="eval")
+    except SyntaxError as e:
+        raise ValueError(
+            f"{label} has invalid syntax: {e.msg} (use Python syntax)"
+        ) from None
+    for node in _ast.walk(tree):
+        if isinstance(node, _ast.Call):
+            if isinstance(node.func, _ast.Name) and node.func.id in _BLOCKED_CALLS:
+                raise ValueError(f"Call not allowed in {label}: {node.func.id}()")
+        elif isinstance(node, _ast.Attribute):
+            if node.attr in _BLOCKED_ATTRS:
+                raise ValueError(f"Attribute not allowed in {label}: .{node.attr}")
+    return expr
+
+
 # ---------------------------------------------------------------------------
 # Position → (placement_call, secondary_call, stack_direction)
 # placement_call is the full method call appended to the mobject, e.g.
@@ -287,21 +316,7 @@ def build_complex_source(
         ),
     }
     if mode == "Custom":
-        fn = (custom_fn or "z**2").strip()
-        try:
-            tree = _ast.parse(fn, mode="eval")
-        except SyntaxError as e:
-            raise ValueError(
-                f"Custom f(z) expression has invalid syntax: {e.msg} "
-                f"(use Python syntax, e.g. z**2, cmath.sin(z))"
-            ) from None
-        for node in _ast.walk(tree):
-            if isinstance(node, _ast.Call):
-                if isinstance(node.func, _ast.Name) and node.func.id in _BLOCKED_CALLS:
-                    raise ValueError(f"Call not allowed in f(z): {node.func.id}()")
-            elif isinstance(node, _ast.Attribute):
-                if node.attr in _BLOCKED_ATTRS:
-                    raise ValueError(f"Attribute not allowed in f(z): .{node.attr}")
+        fn = _validate_expr(custom_fn, "f(z) expression", default="z**2")
     else:
         fn = fn_map.get(mode, "z**2")
     r_sample = min(float(scale) * 0.6, 1.8)
