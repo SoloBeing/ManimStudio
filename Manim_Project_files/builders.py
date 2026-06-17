@@ -798,7 +798,7 @@ _SL_COLOR_SCHEMES = {
     "cool":       "BLUE, TEAL, TEAL_B, WHITE",
     "mono":       "BLUE_E, BLUE_C, BLUE_A, WHITE",
     "rainbow":    "RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE",
-    "green_gold": "GREEN_E, GREEN, YELLOW_GREEN, GOLD, YELLOW",
+    "green_gold": "GREEN_E, GREEN, GREEN_A, GOLD, YELLOW",
 }
 
 
