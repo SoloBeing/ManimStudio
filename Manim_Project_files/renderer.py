@@ -201,7 +201,8 @@ class RenderThread(threading.Thread):
             if worker is not None:
                 try:
                     self._worker = worker
-                    _, full_output = worker.submit(argv, self.on_log)
+                    _, full_output = worker.submit(
+                        argv, self.on_log, stop_check=lambda: self._stopped)
                 except WorkerUnavailable as e:
                     self._worker = None
                     self.on_log(f"[INFO] warm worker unavailable ({e}); cold render")
@@ -221,6 +222,9 @@ class RenderThread(threading.Thread):
     def _run_cold(self, argv: list) -> list:
         """Spawn a fresh manim subprocess (Windows path / worker fallback)."""
         full_output = []
+        # Cancelled before we even spawned — don't start the render at all.
+        if self._stopped:
+            return full_output
         if getattr(sys, "frozen", False):
             cmd = [sys.executable, "--run-manim"] + argv
         else:
@@ -232,6 +236,10 @@ class RenderThread(threading.Thread):
             encoding="utf-8", errors="replace",
             **kw
         )
+        # If stop() raced us between the check above and Popen, its kill targeted
+        # a proc that didn't exist yet — so kill now that we have a handle.
+        if self._stopped:
+            self.stop()
         for line in self._proc.stdout:
             stripped = line.rstrip()
             if "format set as webm" not in stripped and "format changed to '.webm'" not in stripped:
@@ -397,22 +405,34 @@ class WarmWorker:
         try:
             for line in proc.stdout:
                 s = line.rstrip("\n")
-                if s.startswith(_CTL_PREFIX):
-                    self._handle_ctl(s[len(_CTL_PREFIX):])
+                # A control frame normally arrives on its own line, but a render
+                # child killed mid-write can leave a partial line with no trailing
+                # newline — so the worker's "done" frame gets glued onto the end of
+                # it (e.g. "Animation 3:  50%\x00CTL{...}"). The \x00CTL sentinel
+                # can't occur in normal output, so split on it wherever it lands
+                # and treat anything before it as a (partial) log line.
+                if _CTL_PREFIX in s:
+                    pre, _, ctl = s.partition(_CTL_PREFIX)
+                    if pre:
+                        self._emit_log(pre)
+                    self._handle_ctl(ctl)
                     continue
-                out = self._current_output
-                if out is not None:
-                    out.append(s)
-                if "format set as webm" in s or "format changed to '.webm'" in s:
-                    continue
-                cb = self._current_on_log
-                if cb is not None:
-                    cb(s)
+                self._emit_log(s)
         except (ValueError, OSError):
             pass
         # stdout closed → worker exited; unblock any waiter as a failure
         self._alive = False
         self._done_evt.set()
+
+    def _emit_log(self, s: str):
+        out = self._current_output
+        if out is not None:
+            out.append(s)
+        if "format set as webm" in s or "format changed to '.webm'" in s:
+            return
+        cb = self._current_on_log
+        if cb is not None:
+            cb(s)
 
     def _handle_ctl(self, payload: str):
         try:
@@ -429,12 +449,20 @@ class WarmWorker:
 
     # -- job dispatch -------------------------------------------------------
 
-    def submit(self, argv: list, on_log) -> "tuple[int, list]":
+    def submit(self, argv: list, on_log, stop_check=None) -> "tuple[int, list]":
         """Run one render on the worker; block until it finishes.
 
         Returns (exit_code, full_output). Raises WorkerUnavailable if the worker
         isn't running or dies mid-job, so the caller can fall back to a cold
         render. Jobs are serialized by the caller (one render at a time).
+
+        ``stop_check`` is an optional predicate. A cancel that lands *before* the
+        render is dispatched (e.g. while we're still waiting on the manim import)
+        can't be delivered to a child that doesn't exist yet — so we check it
+        right before dispatch and skip the render entirely. A cancel that lands
+        *after* dispatch is handled by the worker: stdin is FIFO and processed in
+        order, so the cancel is always read after the render command and reliably
+        kills the just-forked child.
         """
         self.ensure_started()
         # Only the very first render waits on the manim import; later ones are
@@ -445,6 +473,9 @@ class WarmWorker:
             proc = self._proc
             if proc is None or proc.poll() is not None:
                 raise WorkerUnavailable("worker not running")
+            if stop_check is not None and stop_check():
+                # Cancelled before we ever dispatched — nothing rendered.
+                return -1, []
             self._job_id += 1
             jid = self._job_id
             self._cur_job        = jid
@@ -508,7 +539,7 @@ def worker_main():
     child per render. Control frames are written to stdout with the _CTL_PREFIX
     sentinel; render logs are the child's plain stdout.
     """
-    import json as _json, runpy as _runpy, select as _select
+    import json as _json, runpy as _runpy, select as _select, time as _time
 
     import manim  # noqa: F401  — pay the import cost once for the whole session
 
@@ -528,6 +559,7 @@ def worker_main():
     child    = None   # pid (== pgid) of the running render child
     job      = None
     buf      = b""
+    cancel_deadline = None   # monotonic time after which a cancel escalates to SIGKILL
 
     while True:
         # Block until a command arrives when idle; poll the child while a render
@@ -553,6 +585,15 @@ def worker_main():
                 _ctl({"id": job, "event": "done", "code": code})
                 child = None
                 job   = None
+                cancel_deadline = None
+            elif cancel_deadline is not None and _time.monotonic() >= cancel_deadline:
+                # SIGTERM didn't take (manim/ffmpeg can ignore it); force-kill so
+                # the cancelled render can't hang the worker — and the UI — forever.
+                try:
+                    os.killpg(child, signal.SIGKILL)
+                except (ProcessLookupError, OSError):
+                    pass
+                cancel_deadline = None
 
         if not r:
             continue
@@ -589,6 +630,8 @@ def worker_main():
                         os.killpg(child, signal.SIGTERM)
                     except (ProcessLookupError, OSError):
                         pass
+                    # Give SIGTERM a brief grace, then escalate (see child poll above).
+                    cancel_deadline = _time.monotonic() + 2.0
             elif action == "render":
                 if child is not None:
                     _ctl({"id": cmd.get("id"), "event": "done", "code": 1})

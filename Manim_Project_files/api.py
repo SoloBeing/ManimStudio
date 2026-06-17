@@ -262,8 +262,19 @@ class Api:
     def _render_impl(self, mode: str, params_json: str, scene_name: str,
                      quality: str, fps: str, opengl: bool, fmt: str) -> dict:
         with self._lock:
-            if self._thread and self._thread.is_alive():
+            t = self._thread
+        if t and t.is_alive():
+            if not getattr(t, "_stopped", False):
                 return {"ok": False, "error": "Render already in progress"}
+            # A previous render was cancelled but hasn't fully wound down yet.
+            # Re-assert the cancel (idempotent) and wait it out — the worker
+            # force-kills within ~2s, so this returns promptly rather than
+            # rejecting the user's re-run.
+            t.stop()
+            t.join(timeout=8)
+            if t.is_alive():
+                return {"ok": False,
+                        "error": "Previous render did not stop; please retry"}
 
         try:
             params = json.loads(params_json)
@@ -344,10 +355,21 @@ class Api:
             t = self._thread
         if t and t.is_alive():
             t.stop()
-            t.join(timeout=5)
+            t.join(timeout=6)
+            dead = not t.is_alive()
             with self._lock:
                 self._status = "stopped"
+                # Drop the reference once it's actually dead so a re-run isn't
+                # blocked by a stale "in progress" check on a finished thread.
+                if dead:
+                    self._thread = None
             self._push({"status": "stopped"})
+            # _on_done never runs on a cancelled render, so its partial movie
+            # files would otherwise leak (self._render_stem is "" mid-render).
+            # Clean them up here using the thread's real stem, once the render
+            # child is confirmed dead and can no longer be writing to them.
+            if dead:
+                self._cleanup_render_artifacts(getattr(t, "render_stem", "") or "")
             _log_activity("Render stopped by user")
         return {"ok": True}
 
