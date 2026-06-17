@@ -805,6 +805,7 @@ _SL_COLOR_SCHEMES = {
 def build_streamlines_source(
     mode, scale, spacing, flow_speed, virtual_time, stroke_width_sl, show_axes, animate,
     color_scheme="default", cam_zoom=1.0,
+    line_opacity=0.9, pulse_width=0.45, hold_duration=4.0,
     text_position="top_left", text_color="teal", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
     preset_title="", preset_subtitle="",
@@ -846,6 +847,22 @@ def build_streamlines_source(
             "Wave",
             "np.array([np.sin(p[1]), np.cos(p[0]), 0])",
             "Sinusoidal wave field",
+        ),
+        "shear": (
+            "Shear",
+            "np.array([p[1], 0, 0])",
+            "Horizontal shear flow",
+        ),
+        "spiral": (
+            "Spiral",
+            "np.array([-p[1] - 0.3 * p[0], p[0] - 0.3 * p[1], 0])",
+            "Spiral sink (rotation + inward pull)",
+        ),
+        "dipole": (
+            "Dipole",
+            "np.array([p[1] ** 2 - p[0] ** 2, -2 * p[0] * p[1], 0]) "
+            "/ (np.linalg.norm(p[:2]) ** 4 + 0.6)",
+            "Dipole (doublet) flow",
         ),
     }
     title, expr, subtitle = field_map[mode]
@@ -919,7 +936,7 @@ def build_streamlines_source(
         f"            virtual_time={virtual_time:.2f},",
         "            max_anchors_per_line=70,",
         f"            stroke_width={stroke_width_sl:.2f},",
-        "            opacity=0.9,",
+        f"            opacity={max(0.05, min(1.0, float(line_opacity))):.2f},",
         "        )",
     ]
 
@@ -929,9 +946,9 @@ def build_streamlines_source(
             "        stream_lines.start_animation(",
             "            warm_up=False,",
             f"            flow_speed={flow_speed:.2f},",
-            "            time_width=0.45,",
+            f"            time_width={max(0.05, min(1.0, float(pulse_width))):.2f},",
             "        )",
-            "        self.wait(4)",
+            f"        self.wait({max(0.5, float(hold_duration)):.2f})",
             "        self.play(stream_lines.end_animation(), run_time=0.8)",
         ]
     else:

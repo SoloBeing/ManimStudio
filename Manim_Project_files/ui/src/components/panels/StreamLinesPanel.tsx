@@ -7,6 +7,7 @@ import type { PanelHandle, TextParams } from '../../types';
 const FIELDS = [
   ['Vortex', 'vortex'], ['Source', 'source'], ['Sink', 'sink'],
   ['Saddle', 'saddle'], ['Wave', 'wave'],
+  ['Shear', 'shear'], ['Spiral', 'spiral'], ['Dipole', 'dipole'],
 ];
 
 const COLOR_SCHEMES = [
@@ -25,6 +26,9 @@ export function StreamLinesPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
   const [flowSpeed, setFlowSpeed]   = useState(1.4);
   const [virtualTime, setVirtualTime] = useState(4.0);
   const [strokeWidth, setStrokeWidth] = useState(1.6);
+  const [lineOpacity, setLineOpacity] = useState(0.9);
+  const [pulseWidth, setPulseWidth] = useState(0.45);
+  const [holdDuration, setHoldDuration] = useState(4.0);
   const [showAxes, setShowAxes]     = useState(true);
   const [animate, setAnimate]       = useState(true);
   const [colorScheme, setColorScheme] = useState('default');
@@ -37,6 +41,8 @@ export function StreamLinesPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
       params: {
         mode, scale, spacing, flow_speed: flowSpeed,
         virtual_time: virtualTime, stroke_width_sl: strokeWidth,
+        line_opacity: lineOpacity, pulse_width: pulseWidth,
+        hold_duration: holdDuration,
         show_axes: showAxes, animate,
         color_scheme: colorScheme, cam_zoom: camZoom,
         ...text,
@@ -58,6 +64,7 @@ export function StreamLinesPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
       <Knob label="Flow Speed"   min={0.2} max={4.0} value={flowSpeed}   onChange={setFlowSpeed}   decimals={1} step={0.1} />
       <Knob label="Trail Length" min={1.0} max={8.0} value={virtualTime} onChange={setVirtualTime} decimals={1} step={0.5} />
       <Knob label="Line Width"   min={0.5} max={5.0} value={strokeWidth} onChange={setStrokeWidth} decimals={1} step={0.1} />
+      <Knob label="Line Opacity" min={0.1} max={1.0} value={lineOpacity} onChange={setLineOpacity} decimals={2} step={0.05} />
 
       <div className="sec-sep" />
       <div className="sec-hdr">Colors</div>
@@ -71,6 +78,12 @@ export function StreamLinesPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
         <label className="app-check"><input type="checkbox" checked={showAxes}  onChange={e => setShowAxes(e.target.checked)} /> Grid</label>
         <label className="app-check"><input type="checkbox" checked={animate}   onChange={e => setAnimate(e.target.checked)}  /> Animate Flow</label>
       </div>
+      {animate && (
+        <>
+          <Knob label="Pulse Width"    min={0.1} max={1.0}  value={pulseWidth}   onChange={setPulseWidth}   decimals={2} step={0.05} />
+          <Knob label="Hold Duration"  min={1.0} max={10.0} value={holdDuration} onChange={setHoldDuration} decimals={1} step={0.5} />
+        </>
+      )}
 
       <div className="sec-sep" />
       <div className="sec-hdr">Camera</div>
