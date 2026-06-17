@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import type { TextParams } from '../../types';
+import { NumInput } from './NumInput';
 
 const POSITIONS = [
   ['Top Left', 'top_left'], ['Top Center', 'top_center'], ['Top Right', 'top_right'],
@@ -158,9 +159,9 @@ export function TextControls({ value, onChange }: TextControlsProps) {
           </div>
           <div className="field-row">
             <label>Size</label>
-            <input className="knob__num" style={{ flex: 1, width: 'auto' }} type="number"
-              min={8} max={72} value={value.text_font_size}
-              onChange={e => set('text_font_size', parseInt(e.target.value) || 22)} />
+            <NumInput className="knob__num" style={{ flex: 1, width: 'auto' }}
+              min={8} max={72} decimals={0} value={value.text_font_size}
+              onChange={v => set('text_font_size', v)} />
           </div>
           <div className="field-row">
             <label>Gradient</label>
@@ -185,9 +186,9 @@ export function TextControls({ value, onChange }: TextControlsProps) {
           </div>
           <div className="field-row">
             <label>Stroke W</label>
-            <input className="knob__num" style={{ flex: 1, width: 'auto' }} type="number"
-              min={0} max={20} step={0.5} value={value.stroke_width}
-              onChange={e => set('stroke_width', parseFloat(e.target.value) || 0)} />
+            <NumInput className="knob__num" style={{ flex: 1, width: 'auto' }}
+              min={0} max={20} step={0.5} decimals={1} value={value.stroke_width}
+              onChange={v => set('stroke_width', v)} />
           </div>
           <div className="field-row">
             <label>Stroke C</label>
@@ -198,15 +199,15 @@ export function TextControls({ value, onChange }: TextControlsProps) {
           </div>
           <div className="field-row">
             <label>{isFree ? 'X Pos' : 'X Offset'}</label>
-            <input className="knob__num" style={{ flex: 1, width: 'auto' }} type="number"
-              min={-8} max={8} step={0.1} value={value.x_offset}
-              onChange={e => set('x_offset', parseFloat(e.target.value) || 0)} />
+            <NumInput className="knob__num" style={{ flex: 1, width: 'auto' }}
+              min={-8} max={8} step={0.1} decimals={1} value={value.x_offset}
+              onChange={v => set('x_offset', v)} />
           </div>
           <div className="field-row">
             <label>{isFree ? 'Y Pos' : 'Y Offset'}</label>
-            <input className="knob__num" style={{ flex: 1, width: 'auto' }} type="number"
-              min={-5} max={5} step={0.1} value={value.y_offset}
-              onChange={e => set('y_offset', parseFloat(e.target.value) || 0)} />
+            <NumInput className="knob__num" style={{ flex: 1, width: 'auto' }}
+              min={-5} max={5} step={0.1} decimals={1} value={value.y_offset}
+              onChange={v => set('y_offset', v)} />
           </div>
           <PositionPreview mx={previewX} my={previewY} isFree={isFree} onDrag={handleDrag} />
           <div className="pos-preview__hint">

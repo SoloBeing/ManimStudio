@@ -1,3 +1,5 @@
+import { NumInput } from './NumInput';
+
 interface KnobProps {
   label: string;
   min: number;
@@ -15,11 +17,6 @@ export function Knob({ label, min, max, value, onChange, decimals = 2, step }: K
     onChange(parseFloat(e.target.value));
   }
 
-  function handleNum(e: React.ChangeEvent<HTMLInputElement>) {
-    const v = parseFloat(e.target.value);
-    if (!isNaN(v)) onChange(Math.max(min, Math.min(max, v)));
-  }
-
   return (
     <div className="knob">
       <span className="knob__label">{label}</span>
@@ -32,14 +29,14 @@ export function Knob({ label, min, max, value, onChange, decimals = 2, step }: K
         value={value}
         onChange={handleSlider}
       />
-      <input
+      <NumInput
         className="knob__num"
-        type="number"
         min={min}
         max={max}
         step={s}
-        value={value.toFixed(decimals)}
-        onChange={handleNum}
+        decimals={decimals}
+        value={value}
+        onChange={onChange}
       />
     </div>
   );

@@ -1,5 +1,6 @@
 import { useImperativeHandle, useState } from 'react';
 import { Knob } from '../shared/Knob';
+import { NumInput } from '../shared/NumInput';
 import { TextControls } from '../shared/TextControls';
 import { DEFAULT_TEXT } from '../../types';
 import type { PanelHandle, TextParams } from '../../types';
@@ -98,22 +99,22 @@ export function LinearPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
           <div className="sec-hdr">2×2 Matrix</div>
           <div className="matrix-grid">
             <label>a</label>
-            <input className="knob__num" style={{ width: '100%' }} type="number" min={-9} max={9} step={0.25} value={a} onChange={e => { setA(parseFloat(e.target.value)||0); setPreset('Custom'); }} />
+            <NumInput className="knob__num" style={{ width: '100%' }} min={-9} max={9} step={0.25} decimals={2} value={a} onChange={v => { setA(v); setPreset('Custom'); }} />
             <label>b</label>
-            <input className="knob__num" style={{ width: '100%' }} type="number" min={-9} max={9} step={0.25} value={b} onChange={e => { setB(parseFloat(e.target.value)||0); setPreset('Custom'); }} />
+            <NumInput className="knob__num" style={{ width: '100%' }} min={-9} max={9} step={0.25} decimals={2} value={b} onChange={v => { setB(v); setPreset('Custom'); }} />
             <label>c</label>
-            <input className="knob__num" style={{ width: '100%' }} type="number" min={-9} max={9} step={0.25} value={c} onChange={e => { setC(parseFloat(e.target.value)||0); setPreset('Custom'); }} />
+            <NumInput className="knob__num" style={{ width: '100%' }} min={-9} max={9} step={0.25} decimals={2} value={c} onChange={v => { setC(v); setPreset('Custom'); }} />
             <label>d</label>
-            <input className="knob__num" style={{ width: '100%' }} type="number" min={-9} max={9} step={0.25} value={d} onChange={e => { setD(parseFloat(e.target.value)||0); setPreset('Custom'); }} />
+            <NumInput className="knob__num" style={{ width: '100%' }} min={-9} max={9} step={0.25} decimals={2} value={d} onChange={v => { setD(v); setPreset('Custom'); }} />
           </div>
 
           <div className="sec-sep" />
           <div className="sec-hdr">Input Vector</div>
           <div className="field-row">
             <label>Vx</label>
-            <input className="knob__num" style={{ flex: 1, width: 'auto' }} type="number" min={-5} max={5} step={0.5} value={vx} onChange={e => setVx(parseFloat(e.target.value)||0)} />
+            <NumInput className="knob__num" style={{ flex: 1, width: 'auto' }} min={-5} max={5} step={0.5} decimals={2} value={vx} onChange={setVx} />
             <label style={{ minWidth: 24, textAlign: 'center' }}>Vy</label>
-            <input className="knob__num" style={{ flex: 1, width: 'auto' }} type="number" min={-5} max={5} step={0.5} value={vy} onChange={e => setVy(parseFloat(e.target.value)||0)} />
+            <NumInput className="knob__num" style={{ flex: 1, width: 'auto' }} min={-5} max={5} step={0.5} decimals={2} value={vy} onChange={setVy} />
           </div>
 
           <div className="sec-sep" />
