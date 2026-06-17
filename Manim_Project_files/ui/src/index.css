@@ -227,6 +227,9 @@ input[type="checkbox"]:hover:not(:checked) {
   text-align: right;
   outline: none;
   flex-shrink: 0;
+  /* Render the native number-spinner buttons in dark mode to match the theme
+     instead of the default light/white arrows. */
+  color-scheme: dark;
 }
 .knob__num:focus { border-color: var(--blue); }
 
