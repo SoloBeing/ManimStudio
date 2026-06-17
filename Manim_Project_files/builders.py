@@ -821,6 +821,8 @@ def build_streamlines_source(
     mode, scale, spacing, flow_speed, virtual_time, stroke_width_sl, show_axes, animate,
     color_scheme="default", cam_zoom=1.0,
     line_opacity=0.9, pulse_width=0.45, hold_duration=4.0,
+    custom_fx="-y", custom_fy="x",
+    custom_field_raw="np.array([-p[1], p[0], 0])", field_advanced=False,
     text_position="top_left", text_color="teal", text_font="Arial",
     text_content="", text_font_size=22, show_preset_labels=True,
     preset_title="", preset_subtitle="",
@@ -880,7 +882,22 @@ def build_streamlines_source(
             "Dipole (doublet) flow",
         ),
     }
-    title, expr, subtitle = field_map[mode]
+    if mode == "custom":
+        title, subtitle = "Custom", "Custom vector field"
+        if field_advanced:
+            raw = _validate_expr(custom_field_raw, "Field f(p) expression",
+                                 default="np.array([-p[1], p[0], 0])")
+            field_body = [f"            return {raw}"]
+        else:
+            fx = _validate_expr(custom_fx, "Fx(x, y) expression", default="-y")
+            fy = _validate_expr(custom_fy, "Fy(x, y) expression", default="x")
+            field_body = [
+                "            x, y = p[0], p[1]",
+                f"            return np.array([{fx}, {fy}, 0])",
+            ]
+    else:
+        title, expr, subtitle = field_map[mode]
+        field_body = [f"            return {expr}"]
     subtitle = preset_subtitle or subtitle
     step = max(0.2, float(spacing))
 
@@ -926,7 +943,7 @@ def build_streamlines_source(
     L += [
         "",
         "        def field(p):",
-        f"            return {expr}",
+        *field_body,
         "",
         "        plane = NumberPlane(",
         f"            x_range=[{-scale:.2f}, {scale:.2f}, 1],",

@@ -8,6 +8,7 @@ const FIELDS = [
   ['Vortex', 'vortex'], ['Source', 'source'], ['Sink', 'sink'],
   ['Saddle', 'saddle'], ['Wave', 'wave'],
   ['Shear', 'shear'], ['Spiral', 'spiral'], ['Dipole', 'dipole'],
+  ['Custom…', 'custom'],
 ];
 
 const COLOR_SCHEMES = [
@@ -33,6 +34,10 @@ export function StreamLinesPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
   const [animate, setAnimate]       = useState(true);
   const [colorScheme, setColorScheme] = useState('default');
   const [camZoom, setCamZoom]       = useState(1.0);
+  const [customFx, setCustomFx]     = useState('-y');
+  const [customFy, setCustomFy]     = useState('x');
+  const [customRaw, setCustomRaw]   = useState('np.array([-p[1], p[0], 0])');
+  const [fieldAdvanced, setFieldAdvanced] = useState(false);
   const [text, setText]             = useState<TextParams>({ ...DEFAULT_TEXT, text_position: 'top_left', text_color: 'teal' });
 
   useImperativeHandle(ref, () => ({
@@ -45,6 +50,8 @@ export function StreamLinesPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
         hold_duration: holdDuration,
         show_axes: showAxes, animate,
         color_scheme: colorScheme, cam_zoom: camZoom,
+        custom_fx: customFx, custom_fy: customFy,
+        custom_field_raw: customRaw, field_advanced: fieldAdvanced,
         ...text,
       },
     }),
@@ -56,6 +63,45 @@ export function StreamLinesPanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
       <select className="app-select" value={mode} onChange={e => setMode(e.target.value)}>
         {FIELDS.map(([l, v]) => <option key={v} value={v}>{l}</option>)}
       </select>
+
+      {mode === 'custom' && (
+        <div style={{ marginTop: 8 }}>
+          <label className="app-check" style={{ marginBottom: 6 }}>
+            <input type="checkbox" checked={fieldAdvanced}
+              onChange={e => setFieldAdvanced(e.target.checked)} /> Advanced (raw vector)
+          </label>
+          {!fieldAdvanced ? (
+            <>
+              <div className="field-row">
+                <label>Fx(x, y)</label>
+                <input className="app-input" style={{ flex: 1, fontFamily: 'monospace' }}
+                  value={customFx} onChange={e => setCustomFx(e.target.value)}
+                  placeholder="e.g. -y" spellCheck={false} />
+              </div>
+              <div className="field-row">
+                <label>Fy(x, y)</label>
+                <input className="app-input" style={{ flex: 1, fontFamily: 'monospace' }}
+                  value={customFy} onChange={e => setCustomFy(e.target.value)}
+                  placeholder="e.g. x" spellCheck={false} />
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 4, lineHeight: 1.4 }}>
+                Variables: x, y. Available: np, math. Builds np.array([Fx, Fy, 0]).
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="sec-hdr">field(p) =</div>
+              <input className="app-input"
+                style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace' }}
+                value={customRaw} onChange={e => setCustomRaw(e.target.value)}
+                placeholder="e.g. np.array([-p[1], p[0], 0])" spellCheck={false} />
+              <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 4, lineHeight: 1.4 }}>
+                p is a 3-vector (p[0]=x, p[1]=y). Return a 3-component np.array.
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="sec-sep" />
       <div className="sec-hdr">Parameters</div>
