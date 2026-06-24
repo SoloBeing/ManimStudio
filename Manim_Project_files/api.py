@@ -636,12 +636,19 @@ class Api:
                 continue
             shutil.rmtree(d, ignore_errors=True)
 
-        # remove any empty parent dirs (videos/, images/, etc.) unless keep_path is inside
+        # Remove the now-empty parent dirs (videos/, images/, etc.) unless
+        # keep_path is inside. os.rmdir — NOT shutil.rmtree — so a parent that
+        # still holds other renders' output, or a user-chosen output dir that
+        # already contains its own same-named videos/images/texts/Tex folder, is
+        # never wiped: rmdir only succeeds on an empty dir and is a no-op otherwise.
         for subdir in _MEDIA_SUBDIRS:
             d = os.path.join(out, subdir)
             if keep and _under(d):
                 continue
-            shutil.rmtree(d, ignore_errors=True)
+            try:
+                os.rmdir(d)
+            except OSError:
+                pass  # non-empty (siblings / user files) or missing — leave it
 
     @staticmethod
     def _stamp(msg: str) -> str:
