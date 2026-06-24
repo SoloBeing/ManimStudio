@@ -5,10 +5,16 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13.4"
 dependencies = [
+    "colour>=0.1.5",
     "manim>=0.20.1",
+    "mpmath>=1.3.0",
+    "pandas>=3.0.3",
     "pyinstaller>=6.20.0",
     "pyqt6>=6.11.0",
     "pyqt6-webengine>=6.11.0",
     "pywebview>=6.2.1",
     "qtpy>=2.4.3",
+    "scikit-image>=0.26.0",
+    "shapely>=2.1.2",
+    "sympy>=1.14.0",
 ]

@@ -32,6 +32,24 @@ for package in ["manim", "manimpango", "pywebview"]:
     hiddenimports += package_hiddenimports
     hiddenimports += collect_submodules(package)
 
+# Math / image companion libraries usable from the Playground. They are NOT
+# imported by app.py or manim's entry path, so PyInstaller's static analysis
+# would omit them — a user scene doing `import sympy` would then fail in the
+# frozen app with ModuleNotFoundError. Force every module + data file (and
+# native libs, e.g. shapely's GEOS) into the bundle so the whole stack works
+# out of the box, no user install required.
+for package in ["sympy", "mpmath", "skimage", "shapely", "pandas", "colour"]:
+    package_datas, package_binaries, package_hiddenimports = collect_all(package)
+    datas += package_datas
+    binaries += package_binaries
+    hiddenimports += package_hiddenimports
+
+# numpy/scipy/networkx/Pillow already ship as manim dependencies; top up their
+# submodules so lazily-loaded parts (e.g. scipy.optimize, numpy.fft) are present
+# for arbitrary Playground use too.
+for package in ["numpy", "scipy", "networkx", "PIL"]:
+    hiddenimports += collect_submodules(package)
+
 # Bundle the React UI build (served via HTTP at runtime)
 datas += [("ui/dist", "ui/dist")]
 
