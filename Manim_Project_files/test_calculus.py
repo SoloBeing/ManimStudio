@@ -54,6 +54,33 @@ def test_latex_free_by_default():
     _compiles(src)
 
 
+def test_riemann_left_uses_get_riemann_rectangles():
+    src = build_calculus_source("x^2", a=0, b=2, riemann={"on": True, "method": "left", "n": 8})
+    assert "get_riemann_rectangles(" in src
+    assert "input_sample_type='left'" in src
+    assert "/8" in src or "/ 8" in src or "dx=(2.0000-0.0000)/8" in src
+    _compiles(src)
+
+
+def test_riemann_mid_maps_to_center():
+    src = build_calculus_source("x^2", a=0, b=2, riemann={"on": True, "method": "mid"})
+    assert "input_sample_type='center'" in src
+    _compiles(src)
+
+
+def test_riemann_trapezoid_is_manual_polygons():
+    src = build_calculus_source("x^2", a=0, b=2, riemann={"on": True, "method": "trapezoid"})
+    assert "get_riemann_rectangles(" not in src   # trapezoid is custom
+    assert "Polygon(" in src
+    _compiles(src)
+
+
+def test_riemann_off_emits_nothing():
+    src = build_calculus_source("x^2", riemann={"on": False})
+    assert "get_riemann_rectangles(" not in src and "_traps" not in src
+    _compiles(src)
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 

@@ -1887,7 +1887,70 @@ def build_calculus_source(
 
 
 # Overlay emitters — filled in by Tasks 2-5; no-ops until then.
-def _emit_riemann(L, R, a, b, n, mk, readout):    pass
+def _emit_riemann(L, R, a, b, n, mk, readout):
+    if not R.get("on"):
+        return
+    method = str(R.get("method", "left")).lower()
+    if method == "trapezoid":
+        L += [
+            f"        _dx = ({b:.4f} - {a:.4f}) / {n}",
+            "        _traps = VGroup()",
+            f"        for _k in range({n}):",
+            f"            _xa = {a:.4f} + _k * _dx",
+            "            _xb = _xa + _dx",
+            "            try:",
+            "                with np.errstate(all='ignore'):",
+            "                    _ya = float(_f(_xa)); _yb = float(_f(_xb))",
+            "            except Exception:",
+            "                continue",
+            "            if not (np.isfinite(_ya) and np.isfinite(_yb)):",
+            "                continue",
+            "            _traps.add(Polygon(",
+            "                axes.c2p(_xa, 0), axes.c2p(_xa, _ya),",
+            "                axes.c2p(_xb, _yb), axes.c2p(_xb, 0),",
+            "                stroke_width=1, stroke_color=WHITE,",
+            "                fill_color=BLUE, fill_opacity=0.6))",
+            "        self.play(FadeIn(_traps), run_time=1.0)",
+        ]
+    else:
+        ist = {"left": "left", "right": "right", "mid": "center"}.get(method, "left")
+        L += [
+            "        _rects = axes.get_riemann_rectangles(",
+            f"            graph_f, x_range=[{a:.4f}, {b:.4f}], dx=({b:.4f}-{a:.4f})/{n},",
+            f"            input_sample_type={ist!r}, show_signed_area=True,",
+            "            color=(BLUE, GREEN), stroke_width=0.5, stroke_color=WHITE, fill_opacity=0.7)",
+            "        self.play(FadeIn(_rects), run_time=1.0)",
+        ]
+    if R.get("show_value"):
+        # numeric Riemann sum in-scene (sample per method; trapezoid uses the rule)
+        if method == "right":
+            samp = f"_f({a:.4f} + (_k + 1) * _dxv)"
+        elif method == "mid":
+            samp = f"_f({a:.4f} + (_k + 0.5) * _dxv)"
+        else:  # left (and a safe default)
+            samp = f"_f({a:.4f} + _k * _dxv)"
+        L += [
+            f"        _dxv = ({b:.4f} - {a:.4f}) / {n}",
+            "        try:",
+            "            with np.errstate(all='ignore'):",
+        ]
+        if method == "trapezoid":
+            L += [
+                f"                _sig = float(_dxv * (0.5 * _f({a:.4f}) + 0.5 * _f({b:.4f}) "
+                f"+ sum(_f({a:.4f} + _k * _dxv) for _k in range(1, {n}))))",
+            ]
+        else:
+            L += [f"                _sig = float(sum({samp} for _k in range({n})) * _dxv)"]
+        L += [
+            "        except Exception:",
+            "            _sig = float('nan')",
+            "        _sigs = f'{_sig:.3f}' if np.isfinite(_sig) else '—'",
+            "        _sigt = f'{_sig:.3f}' if np.isfinite(_sig) else r'\\text{n/a}'",
+        ]
+        readout(mk(
+            "Text('Σ ≈ ' + _sigs, font_size=22, color=WHITE)",
+            "MathTex(r'\\sum \\approx ' + _sigt, font_size=30, color=WHITE)",
+        ))
 def _emit_area(L, AR, a, b, gbody, mk, readout):  pass
 def _emit_tangent(L, TG, x0, mk, readout):        pass
 def _emit_derivative(L, DV, mk, readout):         pass
