@@ -1564,3 +1564,148 @@ def build_numberline_source(
 
     L.append("        self.wait(1.0)")
     return _join(L)
+
+
+# ===========================================================================
+# Function Grapher
+# ===========================================================================
+
+_FG_NAMESPACE = ("sin, cos, tan, exp, log, log10, sqrt, "
+                 "sinh, cosh, tanh, arcsin, arccos, arctan, floor, ceil, pi, e")
+
+# anim name -> (play-wrapper template applied to the curve var `{g}`, run_time)
+_FG_ANIMS = {
+    "Create":             ("Create({g})",             1.5),
+    "FadeIn":             ("FadeIn({g})",             1.2),
+    "Write":              ("Create({g})",             2.0),
+    "GrowFromEdge":       ("GrowFromEdge({g}, LEFT)", 1.8),
+    "DrawBorderThenFill": ("Create({g})",             1.8),
+}
+
+
+def _funcgraph_expr(expr, label):
+    """Friendly-syntax translate (^ -> **) then validate against the blocklists."""
+    return _validate_expr(str(expr or "").replace("^", "**"), label, default="x**2")
+
+
+def build_funcgraph_source(
+    curves,
+    x_min=-5.0, x_max=5.0, y_min=-4.0, y_max=4.0,
+    x_step=None, y_step=None,
+    show_grid=False, cam_zoom=1.0,
+    anim="Create",
+    axis_label_x="x", axis_label_y="y", title="",
+):
+    # --- numeric ranges (sane + ordered) ---------------------------------
+    xlo, xhi = float(x_min), float(x_max)
+    if xlo >= xhi:
+        xlo, xhi = -5.0, 5.0
+    ylo, yhi = float(y_min), float(y_max)
+    if ylo >= yhi:
+        ylo, yhi = -4.0, 4.0
+    xs = max(0.01, float(x_step) if x_step else (xhi - xlo) / 10.0)
+    ys = max(0.01, float(y_step) if y_step else (yhi - ylo) / 8.0)
+    dx = max(0.005, (xhi - xlo) / 400.0)
+
+    # --- curves (validate exprs, fill per-curve defaults) ----------------
+    clean = []
+    for i, c in enumerate(curves or []):
+        c = c or {}
+        raw = str(c.get("expr", "")).strip()
+        if not raw:
+            continue
+        body  = _funcgraph_expr(raw, f"Curve {i + 1} f(x)")
+        color = _text_color(c.get("color", "blue"))
+        label = str(c.get("label", "")).strip()[:24]
+        style = str(c.get("style", "solid")).strip().lower()
+        width = max(0.5, float(c.get("width", 2.5) or 2.5))
+        clean.append((body, color, label, style, width))
+    if not clean:
+        clean = [("x**2", "BLUE", "", "solid", 2.5)]
+
+    # --- header + friendly-math namespace --------------------------------
+    L = [
+        "from manim import *",
+        "import numpy as np",
+        f"from numpy import ({_FG_NAMESPACE})",
+        "",
+    ]
+    zoom_f = float(cam_zoom or 1.0)
+    if abs(zoom_f - 1.0) > 0.02:
+        L += [
+            f"config.frame_width  = {14.222 / zoom_f:.3f}",
+            f"config.frame_height = {8.0 / zoom_f:.3f}",
+            "",
+        ]
+
+    L += [
+        "class ManimScene(Scene):",
+        "    def construct(self):",
+        "        axes = Axes(",
+        f"            x_range=[{xlo:.4f}, {xhi:.4f}, {xs:.4f}],",
+        f"            y_range=[{ylo:.4f}, {yhi:.4f}, {ys:.4f}],",
+        "            x_length=11, y_length=6,",
+        "            axis_config=dict(color=GREY, include_tip=True),",
+        "        )",
+    ]
+
+    if show_grid:
+        L += [
+            "        grid = NumberPlane(",
+            f"            x_range=[{xlo:.4f}, {xhi:.4f}],",
+            f"            y_range=[{ylo:.4f}, {yhi:.4f}],",
+            "            background_line_style=dict(stroke_color=BLUE_E, stroke_opacity=0.25),",
+            "        )",
+            "        self.play(FadeIn(grid), run_time=0.6)",
+        ]
+
+    L.append("        self.play(Create(axes), run_time=0.8)")
+
+    # axis labels + title — Text(), never Tex, so the scene stays LaTeX-free
+    intro = []
+    xlab = str(axis_label_x or "").strip()[:24]
+    ylab = str(axis_label_y or "").strip()[:24]
+    ttl  = str(title or "").strip()[:48]
+    if xlab:
+        L.append(f"        x_axis_lbl = Text({xlab!r}, font_size=24, color=WHITE).next_to(axes.x_axis, RIGHT, buff=0.2)")
+        intro.append("FadeIn(x_axis_lbl)")
+    if ylab:
+        L.append(f"        y_axis_lbl = Text({ylab!r}, font_size=24, color=WHITE).next_to(axes.y_axis, UP, buff=0.2)")
+        intro.append("FadeIn(y_axis_lbl)")
+    if ttl:
+        L.append(f"        plot_title = Text({ttl!r}, font_size=30, color=WHITE).to_edge(UP, buff=0.3)")
+        intro.append("FadeIn(plot_title)")
+    if intro:
+        L.append(f"        self.play({', '.join(intro)}, run_time=0.5)")
+
+    wrap_tmpl, rt = _FG_ANIMS.get(str(anim or "Create"), _FG_ANIMS["Create"])
+
+    for i, (body, color, label, style, width) in enumerate(clean):
+        g, fn = f"g{i}", f"_f{i}"
+        L += [
+            f"        def {fn}(x):",
+            "            try:",
+            "                with np.errstate(all='ignore'):",
+            f"                    y = {body}",
+            "            except Exception:",
+            "                return np.nan",
+            "            return y if np.isfinite(y) else np.nan",
+            f"        {g} = axes.plot({fn}, x_range=[{xlo:.4f}, {xhi:.4f}, {dx:.4f}], "
+            f"color={color}, stroke_width={width:.2f}, use_smoothing=False)",
+        ]
+        if style == "dashed":
+            L.append(f"        {g} = DashedVMobject({g}, num_dashes=40)")
+        play = wrap_tmpl.format(g=g)
+        if label:
+            lv = f"lbl{i}"
+            L.append(f"        {lv} = Text({label!r}, font_size=22, color={color})")
+            if i == 0:
+                L.append(f"        {lv}.to_corner(UR, buff=0.4)")
+            else:
+                L.append(f"        {lv}.next_to(lbl{i - 1}, DOWN, buff=0.15, aligned_edge=LEFT)")
+            L.append(f"        self.play({play}, FadeIn({lv}), run_time={rt:.1f})")
+        else:
+            L.append(f"        self.play({play}, run_time={rt:.1f})")
+
+    L.append("        self.wait(1.5)")
+    return _join(L)
