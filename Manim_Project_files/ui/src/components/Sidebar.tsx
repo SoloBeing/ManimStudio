@@ -1,6 +1,7 @@
 import { memo, type RefObject } from 'react';
 import type { Mode, PanelHandle } from '../types';
 import { TrigPanel }         from './panels/TrigPanel';
+import { FunctionGraphPanel } from './panels/FunctionGraphPanel';
 import { ComplexPanel }      from './panels/ComplexPanel';
 import { LinearPanel }       from './panels/LinearPanel';
 import { CodePanel }         from './panels/CodePanel';
@@ -13,6 +14,7 @@ import { NumberLinePanel }   from './panels/NumberLinePanel';
 
 const TITLES: Record<Mode, string> = {
   trig:        'Trigonometric Functions',
+  funcgraph:   'Function Grapher',
   complex:     'Complex Plane',
   linear:      'Linear Algebra',
   code:        'Code Animation',
@@ -35,6 +37,7 @@ export const Sidebar = memo(function Sidebar({ activeMode, panelRef }: SidebarPr
       <div className="sidebar__title">{TITLES[activeMode]}</div>
       <div className="sidebar__content">
         {activeMode === 'trig'        && <TrigPanel        ref={panelRef} />}
+        {activeMode === 'funcgraph'   && <FunctionGraphPanel ref={panelRef} />}
         {activeMode === 'complex'     && <ComplexPanel     ref={panelRef} />}
         {activeMode === 'linear'      && <LinearPanel      ref={panelRef} />}
         {activeMode === 'code'        && <CodePanel        ref={panelRef} />}
