@@ -1951,6 +1951,41 @@ def _emit_riemann(L, R, a, b, n, mk, readout):
             "Text('Σ ≈ ' + _sigs, font_size=22, color=WHITE)",
             "MathTex(r'\\sum \\approx ' + _sigt, font_size=30, color=WHITE)",
         ))
-def _emit_area(L, AR, a, b, gbody, mk, readout):  pass
+def _emit_area(L, AR, a, b, gbody, mk, readout):
+    if not AR.get("on"):
+        return
+    mode = str(AR.get("mode", "under")).lower()
+    if mode == "between" and not gbody:
+        mode = "under"
+    color = _text_color(AR.get("color", "teal"))
+    if mode == "between":
+        L += [
+            f"        _area = axes.get_area(graph_f, x_range=[{a:.4f}, {b:.4f}], "
+            f"color={color}, opacity=0.5, bounded_graph=graph_g)",
+        ]
+    else:
+        L += [
+            f"        _area = axes.get_area(graph_f, x_range=[{a:.4f}, {b:.4f}], "
+            f"color={color}, opacity=0.5)",
+        ]
+    L.append("        self.play(FadeIn(_area), run_time=1.0)")
+    if AR.get("show_value"):
+        # trapezoidal numeric integral of f (minus g for 'between') over [a, b]
+        integrand = "(_f(_tt) - _g(_tt))" if mode == "between" else "_f(_tt)"
+        L += [
+            f"        _ts = np.linspace({a:.4f}, {b:.4f}, 200)",
+            "        try:",
+            "            with np.errstate(all='ignore'):",
+            f"                _vals = np.array([{integrand} for _tt in _ts], dtype=float)",
+            "                _ar = float(np.trapezoid(_vals, _ts))",
+            "        except Exception:",
+            "            _ar = float('nan')",
+            "        _ars = f'{_ar:.3f}' if np.isfinite(_ar) else '—'",
+            "        _art = f'{_ar:.3f}' if np.isfinite(_ar) else r'\\text{n/a}'",
+        ]
+        readout(mk(
+            "Text('Area ≈ ' + _ars, font_size=22, color=WHITE)",
+            "MathTex(r'\\int_a^b f\\,dx \\approx ' + _art, font_size=30, color=WHITE)",
+        ))
 def _emit_tangent(L, TG, x0, mk, readout):        pass
 def _emit_derivative(L, DV, mk, readout):         pass

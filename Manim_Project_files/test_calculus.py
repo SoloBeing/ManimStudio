@@ -81,6 +81,31 @@ def test_riemann_off_emits_nothing():
     _compiles(src)
 
 
+def test_area_under_uses_get_area():
+    src = build_calculus_source("x^2", a=0, b=2, area={"on": True, "mode": "under"})
+    assert "axes.get_area(" in src
+    assert "bounded_graph" not in src
+    _compiles(src)
+
+
+def test_area_between_requires_g_else_falls_back():
+    # between without g -> falls back to under (no bounded_graph)
+    src = build_calculus_source("x^2", a=0, b=2, area={"on": True, "mode": "between"})
+    assert "bounded_graph" not in src
+    # with g -> bounded_graph present
+    src2 = build_calculus_source("x^2", g_expr="x", a=0, b=2,
+                                 area={"on": True, "mode": "between"})
+    assert "bounded_graph=graph_g" in src2
+    _compiles(src)
+    _compiles(src2)
+
+
+def test_area_off_emits_nothing():
+    src = build_calculus_source("x^2", area={"on": False})
+    assert "get_area(" not in src
+    _compiles(src)
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 
