@@ -117,6 +117,9 @@ def test_tangent_animate_secant_uses_valuetracker():
     src = build_calculus_source("x^2", x0=1, tangent={"on": True, "animate_secant": True})
     assert "ValueTracker(" in src
     assert "get_secant_slope_group(" in src
+    # after the secant converges, the exact tangent line is drawn and persists
+    assert "axes.plot(lambda x: _f(_x0) + _slope * (x - _x0)" in src
+    assert "_sec.clear_updaters()" in src
     _compiles(src)
 
 

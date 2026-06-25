@@ -2011,6 +2011,13 @@ def _emit_tangent(L, TG, x0, mk, readout):
             "        self.add(_sec)",
             "        self.play(_dxt.animate.set_value(0.05), run_time=2.0)",
             "        self.wait(0.3)",
+            "        # converge to the exact tangent line at x0 (persists)",
+            "        if np.isfinite(_slope):",
+            "            _sec.clear_updaters()",
+            "            self.remove(_sec)",
+            "            _tan = axes.plot(lambda x: _f(_x0) + _slope * (x - _x0), color=GREEN)",
+            "            self.play(Create(_tan), run_time=0.6)",
+            "            self.wait(0.2)",
         ]
     else:
         # static tangent: a clean line through (x0, f(x0)) with the numeric slope
