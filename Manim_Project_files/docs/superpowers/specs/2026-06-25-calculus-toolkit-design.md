@@ -66,7 +66,7 @@ Plus: reused axes/grid/zoom/labels/animation controls, and a **`use_latex` toggl
 |---|------|------|--------|
 | 1 | Mode button | `ui/src/components/ActivityBar.tsx` | add `{ mode:'calculus', icon:'∫', label:'Calc' }` |
 | 2 | Mode type | `ui/src/types.ts` | add `'calculus'` to the `Mode` union |
-| 3 | App wiring | `ui/src/App.tsx` | render `<CalculusPanel>` for the mode, pass panel ref |
+| 3 | Panel switch | `ui/src/components/Sidebar.tsx` | add `CalculusPanel` to the `TITLES` `Record<Mode>` + the mode switch (App.tsx unchanged) |
 | 4 | Builder registry | `api.py` | `_BUILDERS["calculus"] = builders.build_calculus_source` |
 | 5 | Generator | `builders.py` | new `build_calculus_source(...)` |
 | 6 | Generated scene | (string output) | `Axes` + `graph_f` + overlays + readouts |
