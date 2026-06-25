@@ -125,6 +125,25 @@ def test_tangent_off_emits_nothing():
     assert "TangentLine(" not in src and "get_secant_slope_group(" not in src
 
 
+def test_derivative_overlay():
+    src = build_calculus_source("x^2", derivative={"on": True, "color": "red"})
+    assert "plot_derivative_graph(graph_f" in src
+    _compiles(src)
+
+
+def test_derivative_legend_latex_free_default():
+    from api import _source_needs_latex
+    src = build_calculus_source("x^2", derivative={"on": True, "show_legend": True})
+    assert "Text(\"f'(x)\"" in src or "Text('f" in src
+    assert not _source_needs_latex(src)
+    _compiles(src)
+
+
+def test_derivative_off_emits_nothing():
+    src = build_calculus_source("x^2", derivative={"on": False})
+    assert "plot_derivative_graph(" not in src
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 

@@ -2028,4 +2028,16 @@ def _emit_tangent(L, TG, x0, mk, readout):
             "Text('slope = ' + _sls, font_size=22, color=GREEN)",
             "MathTex(r\"f'(x_0) = \" + _slt, font_size=30, color=GREEN)",
         ))
-def _emit_derivative(L, DV, mk, readout):         pass
+def _emit_derivative(L, DV, mk, readout):
+    if not DV.get("on"):
+        return
+    color = _text_color(DV.get("color", "red"))
+    L += [
+        f"        _deriv = axes.plot_derivative_graph(graph_f, color={color})",
+        "        self.play(Create(_deriv), run_time=1.0)",
+    ]
+    if DV.get("show_legend"):
+        readout(mk(
+            f"Text(\"f'(x)\", font_size=22, color={color})",
+            f"MathTex(r\"f'(x)\", font_size=30, color={color})",
+        ))
