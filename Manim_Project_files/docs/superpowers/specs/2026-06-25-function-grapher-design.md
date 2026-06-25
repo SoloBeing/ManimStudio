@@ -254,12 +254,17 @@ Function Grapher
 
 ## 10. Risks / verification items
 
-1. **Manim `nan` rendering behavior (the one empirical unknown).** Exactly how Manim 0.20.1's
-   `axes.plot` draws a curve containing `nan` points (clean gap vs. visual glitch) is **not
-   yet verified**. The implementation plan must smoke-render `1/x`, `tan(x)`, `log(x)`, and
-   `sqrt(x)` and inspect the output. If `nan` misbehaves, fall back to **clamping `y` to a
-   bounded band** (e.g. ±1.5 × the y-span) and/or passing `discontinuities=[...]` to
-   `axes.plot`. Do not assert the `nan`-gap approach works until this render is observed.
+1. **Manim `nan` rendering behavior — RESOLVED (2026-06-25, Session 25).** Verified
+   empirically by still-frame inspection: `axes.plot` voids the *entire* curve if any
+   sampled point is `nan` — so `1/x` (nan at x=0), `log`/`sqrt` (nan for x≤0) rendered as
+   nothing, while `tan` survived only because its asymptotes fall *between* samples (huge
+   but finite). The planned clamp fallback was **insufficient** — domain errors like
+   `log(-1)` have no real value to clamp to. **Resolution:** the builder emits a `_fg_plot`
+   helper that samples each function and splits it into continuous, finite, in-band runs,
+   rendering each run as its own `VMobject` (`set_points_as_corners`); asymptotes and
+   out-of-domain regions become clean breaks, dashed via per-segment `DashedVMobject`.
+   Confirmed by still-frame inspection of `1/x`/`tan`/`log`/`sqrt` and a full render
+   (`smoke_test_v2` test `[26]`).
 2. **LaTeX-free invariant.** Guaranteed only by avoiding the token list in §5; the smoke test
    asserts `_source_needs_latex` returns `False` to prevent regressions (e.g. someone later
    switching to `get_axis_labels`).
