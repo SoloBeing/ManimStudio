@@ -93,9 +93,14 @@ input[type="checkbox"]:hover:not(:checked) {
   overflow-y: auto;
 }
 
+.activity-bar::-webkit-scrollbar { width: 6px; }
+.activity-bar::-webkit-scrollbar-track { background: transparent; }
+.activity-bar::-webkit-scrollbar-thumb { background: var(--active); border-radius: 3px; }
+
 .activity-bar__btn {
   width: 40px;
   height: 40px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
