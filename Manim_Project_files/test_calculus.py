@@ -144,6 +144,29 @@ def test_derivative_off_emits_nothing():
     assert "plot_derivative_graph(" not in src
 
 
+def test_registered_in_builders():
+    from api import _BUILDERS
+    assert "calculus" in _BUILDERS
+
+def test_use_latex_toggles_mathtex_and_preflight():
+    from api import _source_needs_latex
+    # every readout enabled, LaTeX OFF -> no MathTex, preflight false
+    params = dict(f_expr="x^2", a=0, b=2,
+                  riemann={"on": True, "show_value": True},
+                  area={"on": True, "show_value": True},
+                  tangent={"on": True, "show_slope": True},
+                  derivative={"on": True, "show_legend": True})
+    off = build_calculus_source(use_latex=False, **params)
+    assert "MathTex(" not in off
+    assert not _source_needs_latex(off)
+    _compiles(off)
+    # LaTeX ON -> MathTex present, preflight true
+    on = build_calculus_source(use_latex=True, **params)
+    assert "MathTex(" in on
+    assert _source_needs_latex(on)
+    _compiles(on)
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 

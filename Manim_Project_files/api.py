@@ -112,6 +112,7 @@ _BUILDERS = {
     "surface3d":   builders.build_surface3d_source,
     "numberline":  builders.build_numberline_source,
     "funcgraph":   builders.build_funcgraph_source,
+    "calculus":    builders.build_calculus_source,
 }
 
 
