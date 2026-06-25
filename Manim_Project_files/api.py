@@ -111,6 +111,7 @@ _BUILDERS = {
     "barchart":    builders.build_barchart_source,
     "surface3d":   builders.build_surface3d_source,
     "numberline":  builders.build_numberline_source,
+    "funcgraph":   builders.build_funcgraph_source,
 }
 
 

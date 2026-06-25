@@ -1606,6 +1606,9 @@ def build_funcgraph_source(
     xs = max(0.01, float(x_step) if x_step else (xhi - xlo) / 10.0)
     ys = max(0.01, float(y_step) if y_step else (yhi - ylo) / 8.0)
     dx = max(0.005, (xhi - xlo) / 400.0)
+    yspan = yhi - ylo
+    ymargin = max(2.0, 0.5 * yspan)
+    ymin_break, ymax_break = ylo - ymargin, yhi + ymargin
 
     # --- curves (validate exprs, fill per-curve defaults) ----------------
     clean = []
@@ -1623,11 +1626,39 @@ def build_funcgraph_source(
     if not clean:
         clean = [("x**2", "BLUE", "", "solid", 2.5)]
 
-    # --- header + friendly-math namespace --------------------------------
+    # --- header + friendly-math namespace + safe segment-plot helper -----
     L = [
         "from manim import *",
         "import numpy as np",
         f"from numpy import ({_FG_NAMESPACE})",
+        "",
+        "",
+        "def _fg_plot(axes, f, x0, x1, dx, color, width, ymin, ymax, dashed=False):",
+        "    # Sample f over [x0, x1]; split into continuous, finite, in-band runs so",
+        "    # asymptotes and out-of-domain gaps render as breaks (a nan voids axes.plot).",
+        "    grp = VGroup()",
+        "    pts = []",
+        "    n = int(round((x1 - x0) / dx)) + 1",
+        "    for k in range(n):",
+        "        xx = x0 + k * dx",
+        "        try:",
+        "            with np.errstate(all='ignore'):",
+        "                yy = float(f(xx))",
+        "        except Exception:",
+        "            yy = float('nan')",
+        "        if (not np.isfinite(yy)) or yy < ymin or yy > ymax:",
+        "            if len(pts) >= 2:",
+        "                m = VMobject(color=color, stroke_width=width)",
+        "                m.set_points_as_corners([axes.c2p(px, py) for px, py in pts])",
+        "                grp.add(DashedVMobject(m, num_dashes=max(8, len(pts) // 12)) if dashed else m)",
+        "            pts = []",
+        "        else:",
+        "            pts.append((xx, yy))",
+        "    if len(pts) >= 2:",
+        "        m = VMobject(color=color, stroke_width=width)",
+        "        m.set_points_as_corners([axes.c2p(px, py) for px, py in pts])",
+        "        grp.add(DashedVMobject(m, num_dashes=max(8, len(pts) // 12)) if dashed else m)",
+        "    return grp",
         "",
     ]
     zoom_f = float(cam_zoom or 1.0)
@@ -1670,7 +1701,7 @@ def build_funcgraph_source(
         L.append(f"        x_axis_lbl = Text({xlab!r}, font_size=24, color=WHITE).next_to(axes.x_axis, RIGHT, buff=0.2)")
         intro.append("FadeIn(x_axis_lbl)")
     if ylab:
-        L.append(f"        y_axis_lbl = Text({ylab!r}, font_size=24, color=WHITE).next_to(axes.y_axis, UP, buff=0.2)")
+        L.append(f"        y_axis_lbl = Text({ylab!r}, font_size=24, color=WHITE).next_to(axes.y_axis.get_top(), RIGHT, buff=0.2)")
         intro.append("FadeIn(y_axis_lbl)")
     if ttl:
         L.append(f"        plot_title = Text({ttl!r}, font_size=30, color=WHITE).to_edge(UP, buff=0.3)")
@@ -1682,19 +1713,13 @@ def build_funcgraph_source(
 
     for i, (body, color, label, style, width) in enumerate(clean):
         g, fn = f"g{i}", f"_f{i}"
+        dashed = "True" if style == "dashed" else "False"
         L += [
             f"        def {fn}(x):",
-            "            try:",
-            "                with np.errstate(all='ignore'):",
-            f"                    y = {body}",
-            "            except Exception:",
-            "                return np.nan",
-            "            return y if np.isfinite(y) else np.nan",
-            f"        {g} = axes.plot({fn}, x_range=[{xlo:.4f}, {xhi:.4f}, {dx:.4f}], "
-            f"color={color}, stroke_width={width:.2f}, use_smoothing=False)",
+            f"            return {body}",
+            f"        {g} = _fg_plot(axes, {fn}, {xlo:.4f}, {xhi:.4f}, {dx:.4f}, "
+            f"{color}, {width:.2f}, {ymin_break:.4f}, {ymax_break:.4f}, dashed={dashed})",
         ]
-        if style == "dashed":
-            L.append(f"        {g} = DashedVMobject({g}, num_dashes=40)")
         play = wrap_tmpl.format(g=g)
         if label:
             lv = f"lbl{i}"

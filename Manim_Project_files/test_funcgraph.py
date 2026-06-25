@@ -20,21 +20,21 @@ def _compiles(src):
 def test_single_curve_compiles():
     src = build_funcgraph_source([{"expr": "x^2", "color": "blue"}])
     _compiles(src)
-    assert "axes.plot(_f0" in src
-    assert "y = x**2" in src              # friendly ^ translated to **
-    assert "use_smoothing=False" in src
+    assert "_fg_plot(axes, _f0" in src
+    assert "return x**2" in src            # friendly ^ translated to **
+    assert "set_points_as_corners" in src  # robust segment-plot helper
 
 
 def test_namespace_injected():
     src = build_funcgraph_source([{"expr": "sin(x)"}])
     assert "from numpy import (" in src
-    assert "y = sin(x)" in src
+    assert "return sin(x)" in src
     _compiles(src)
 
 
 def test_strict_numpy_still_works():
     src = build_funcgraph_source([{"expr": "np.exp(-x**2)"}])
-    assert "y = np.exp(-x**2)" in src
+    assert "return np.exp(-x**2)" in src
     _compiles(src)
 
 
@@ -43,19 +43,19 @@ def test_multiple_curves_and_dashed():
         {"expr": "x^2",    "color": "blue", "label": "f", "style": "solid"},
         {"expr": "sin(x)", "color": "red",  "label": "g", "style": "dashed"},
     ])
-    assert "axes.plot(_f0" in src and "axes.plot(_f1" in src
-    assert "DashedVMobject(g1" in src         # dashed applied to 2nd curve
-    assert "DashedVMobject(g0" not in src      # 1st curve stays solid
+    assert "_fg_plot(axes, _f0" in src and "_fg_plot(axes, _f1" in src
+    assert "dashed=True" in src                # 2nd curve dashed
+    assert "dashed=False" in src               # 1st curve solid
     assert "Text('f'" in src and "Text('g'" in src
     _compiles(src)
 
 
 def test_empty_or_blank_curves_fallback():
     src = build_funcgraph_source([])
-    assert "y = x**2" in src                   # fallback to one x**2 curve
+    assert "return x**2" in src                # fallback to one x**2 curve
     _compiles(src)
     src2 = build_funcgraph_source([{"expr": "   "}])  # blank expr skipped
-    assert "y = x**2" in src2
+    assert "return x**2" in src2
     _compiles(src2)
 
 
