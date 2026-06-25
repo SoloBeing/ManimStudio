@@ -1734,3 +1734,160 @@ def build_funcgraph_source(
 
     L.append("        self.wait(1.5)")
     return _join(L)
+
+
+# ── Calculus Toolkit ──────────────────────────────────────────────────────
+_CALC_RIEMANN_DEFAULT = {"on": True,  "method": "left", "n": 10,   "show_value": True}
+_CALC_AREA_DEFAULT    = {"on": False, "mode": "under",  "color": "teal", "show_value": True}
+_CALC_TANGENT_DEFAULT = {"on": False, "animate_secant": True, "show_slope": True}
+_CALC_DERIV_DEFAULT   = {"on": False, "color": "red",  "show_legend": True}
+
+
+def build_calculus_source(
+    f_expr="x^2", g_expr="",
+    a=-1.0, b=2.0, x0=1.0,
+    riemann=None, area=None, tangent=None, derivative=None,
+    x_min=-5.0, x_max=5.0, y_min=-4.0, y_max=4.0,
+    x_step=None, y_step=None, show_grid=False, cam_zoom=1.0,
+    axis_label_x="x", axis_label_y="y", title="",
+    use_latex=False, anim="Create",
+):
+    R  = {**_CALC_RIEMANN_DEFAULT, **(riemann or {})}
+    AR = {**_CALC_AREA_DEFAULT,    **(area or {})}
+    TG = {**_CALC_TANGENT_DEFAULT, **(tangent or {})}
+    DV = {**_CALC_DERIV_DEFAULT,   **(derivative or {})}
+
+    # --- numeric guards --------------------------------------------------
+    a, b = float(a), float(b)
+    if a >= b:
+        a, b = -1.0, 2.0
+    n = max(2, min(200, int(R.get("n", 10) or 10)))
+    xlo, xhi = float(x_min), float(x_max)
+    if xlo >= xhi:
+        xlo, xhi = -5.0, 5.0
+    ylo, yhi = float(y_min), float(y_max)
+    if ylo >= yhi:
+        ylo, yhi = -4.0, 4.0
+    x0 = max(xlo, min(xhi, float(x0)))
+    xs = max(0.01, float(x_step) if x_step else (xhi - xlo) / 10.0)
+    ys = max(0.01, float(y_step) if y_step else (yhi - ylo) / 8.0)
+
+    fbody = _funcgraph_expr(f_expr, "f(x)")
+    gbody = _funcgraph_expr(g_expr, "g(x)") if str(g_expr or "").strip() else ""
+
+    # --- emit helpers ----------------------------------------------------
+    L = [
+        "from manim import *",
+        "import numpy as np",
+        f"from numpy import ({_FG_NAMESPACE})",
+        "",
+        "",
+    ]
+    ro = {"i": 0}  # readout chaining counter
+
+    def mk(plain, latex):
+        """Return the in-scene code that builds a Text (default) or MathTex label."""
+        return latex if use_latex else plain
+
+    def readout(code):
+        """Emit a label mobject (code string) stacked in the upper-right corner."""
+        i = ro["i"]; ro["i"] += 1
+        nm = f"_ro{i}"
+        L.append(f"        {nm} = {code}")
+        if i == 0:
+            L.append(f"        {nm}.to_corner(UR, buff=0.4)")
+        else:
+            L.append(f"        {nm}.next_to(_ro{i-1}, DOWN, buff=0.15, aligned_edge=RIGHT)")
+        L.append(f"        self.play(FadeIn({nm}), run_time=0.4)")
+
+    zoom_f = float(cam_zoom or 1.0)
+    if abs(zoom_f - 1.0) > 0.02:
+        L += [f"config.frame_width  = {14.222 / zoom_f:.3f}",
+              f"config.frame_height = {8.0 / zoom_f:.3f}", ""]
+
+    L += [
+        "class ManimScene(Scene):",
+        "    def construct(self):",
+        "        axes = Axes(",
+        f"            x_range=[{xlo:.4f}, {xhi:.4f}, {xs:.4f}],",
+        f"            y_range=[{ylo:.4f}, {yhi:.4f}, {ys:.4f}],",
+        "            x_length=11, y_length=6,",
+        "            axis_config=dict(color=GREY, include_tip=True),",
+        "        )",
+    ]
+    if show_grid:
+        L += [
+            "        grid = NumberPlane(",
+            f"            x_range=[{xlo:.4f}, {xhi:.4f}],",
+            f"            y_range=[{ylo:.4f}, {yhi:.4f}],",
+            "            background_line_style=dict(stroke_color=BLUE_E, stroke_opacity=0.25),",
+            "        )",
+            "        self.play(FadeIn(grid), run_time=0.6)",
+        ]
+    L.append("        self.play(Create(axes), run_time=0.8)")
+
+    # axis labels + title — Text(), never Tex, so the scene stays LaTeX-free
+    intro = []
+    xlab = str(axis_label_x or "").strip()[:24]
+    ylab = str(axis_label_y or "").strip()[:24]
+    ttl  = str(title or "").strip()[:48]
+    if xlab:
+        L.append(f"        x_axis_lbl = Text({xlab!r}, font_size=24, color=WHITE).next_to(axes.x_axis, RIGHT, buff=0.2)")
+        intro.append("FadeIn(x_axis_lbl)")
+    if ylab:
+        L.append(f"        y_axis_lbl = Text({ylab!r}, font_size=24, color=WHITE).next_to(axes.y_axis.get_top(), RIGHT, buff=0.2)")
+        intro.append("FadeIn(y_axis_lbl)")
+    if ttl:
+        L.append(f"        plot_title = Text({ttl!r}, font_size=30, color=WHITE).to_edge(UP, buff=0.3)")
+        intro.append("FadeIn(plot_title)")
+    if intro:
+        L.append(f"        self.play({', '.join(intro)}, run_time=0.5)")
+
+    # define analysis functions
+    L += ["        def _f(x):", f"            return {fbody}"]
+    if gbody:
+        L += ["        def _g(x):", f"            return {gbody}"]
+
+    # finiteness pre-check over [a, b]
+    L += [
+        f"        _xs = np.linspace({a:.4f}, {b:.4f}, 50)",
+        "        _bad = 0",
+        "        for _xx in _xs:",
+        "            try:",
+        "                with np.errstate(all='ignore'):",
+        "                    _yy = float(_f(_xx))",
+        "                if not np.isfinite(_yy): _bad += 1",
+        "            except Exception:",
+        "                _bad += 1",
+        "        if _bad > 10:",
+        "            self.play(FadeIn(Text('⚠ f(x) not finite on [a, b]', "
+        "font_size=22, color=YELLOW).to_edge(DOWN)))",
+    ]
+
+    # plot the analysis graph (the seam: a real axes.plot graph object)
+    wrap_tmpl, rt = _FG_ANIMS.get(str(anim or "Create"), _FG_ANIMS["Create"])
+    L += [
+        f"        graph_f = axes.plot(_f, x_range=[{a:.4f}, {b:.4f}], color=BLUE)",
+        f"        self.play({wrap_tmpl.format(g='graph_f')}, run_time={rt:.1f})",
+    ]
+    if gbody:
+        L += [
+            f"        graph_g = axes.plot(_g, x_range=[{a:.4f}, {b:.4f}], color=GREY)",
+            "        self.play(Create(graph_g), run_time=0.6)",
+        ]
+
+    # ===== overlays go here (Tasks 2-5) =====
+    _emit_riemann(L, R, a, b, n, mk, readout)        # Task 2
+    _emit_area(L, AR, a, b, gbody, mk, readout)      # Task 3
+    _emit_tangent(L, TG, x0, mk, readout)            # Task 4
+    _emit_derivative(L, DV, mk, readout)             # Task 5
+
+    L.append("        self.wait(1.5)")
+    return _join(L)
+
+
+# Overlay emitters — filled in by Tasks 2-5; no-ops until then.
+def _emit_riemann(L, R, a, b, n, mk, readout):    pass
+def _emit_area(L, AR, a, b, gbody, mk, readout):  pass
+def _emit_tangent(L, TG, x0, mk, readout):        pass
+def _emit_derivative(L, DV, mk, readout):         pass
