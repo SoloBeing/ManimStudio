@@ -106,6 +106,25 @@ def test_area_off_emits_nothing():
     _compiles(src)
 
 
+def test_tangent_draws_line_and_slope():
+    src = build_calculus_source("x^2", x0=1, tangent={"on": True, "animate_secant": False})
+    assert "axes.plot(lambda x:" in src    # tangent line through (x0, f(x0))
+    assert "_slope" in src
+    _compiles(src)
+
+
+def test_tangent_animate_secant_uses_valuetracker():
+    src = build_calculus_source("x^2", x0=1, tangent={"on": True, "animate_secant": True})
+    assert "ValueTracker(" in src
+    assert "get_secant_slope_group(" in src
+    _compiles(src)
+
+
+def test_tangent_off_emits_nothing():
+    src = build_calculus_source("x^2", tangent={"on": False})
+    assert "TangentLine(" not in src and "get_secant_slope_group(" not in src
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 

@@ -1987,5 +1987,45 @@ def _emit_area(L, AR, a, b, gbody, mk, readout):
             "Text('Area ≈ ' + _ars, font_size=22, color=WHITE)",
             "MathTex(r'\\int_a^b f\\,dx \\approx ' + _art, font_size=30, color=WHITE)",
         ))
-def _emit_tangent(L, TG, x0, mk, readout):        pass
+def _emit_tangent(L, TG, x0, mk, readout):
+    if not TG.get("on"):
+        return
+    # numeric central-difference slope at x0
+    L += [
+        f"        _x0 = {x0:.4f}; _h = 1e-4",
+        "        try:",
+        "            with np.errstate(all='ignore'):",
+        "                _slope = float((_f(_x0 + _h) - _f(_x0 - _h)) / (2 * _h))",
+        "        except Exception:",
+        "            _slope = float('nan')",
+    ]
+    if TG.get("animate_secant"):
+        L += [
+            "        _dxt = ValueTracker(2.0)",
+            "        def _secant():",
+            "            return axes.get_secant_slope_group(",
+            "                _x0, graph_f, dx=max(1e-3, _dxt.get_value()),",
+            "                dx_line_color=YELLOW, dy_line_color=YELLOW,",
+            "                secant_line_color=GREEN, secant_line_length=8)",
+            "        _sec = always_redraw(_secant)",
+            "        self.add(_sec)",
+            "        self.play(_dxt.animate.set_value(0.05), run_time=2.0)",
+            "        self.wait(0.3)",
+        ]
+    else:
+        # static tangent: a clean line through (x0, f(x0)) with the numeric slope
+        L += [
+            "        if np.isfinite(_slope):",
+            "            _tan = axes.plot(lambda x: _f(_x0) + _slope * (x - _x0), color=GREEN)",
+            "            self.play(Create(_tan), run_time=1.0)",
+        ]
+    if TG.get("show_slope"):
+        L += [
+            "        _sls = f'{_slope:.3f}' if np.isfinite(_slope) else '—'",
+            "        _slt = f'{_slope:.3f}' if np.isfinite(_slope) else r'\\text{n/a}'",
+        ]
+        readout(mk(
+            "Text('slope = ' + _sls, font_size=22, color=GREEN)",
+            "MathTex(r\"f'(x_0) = \" + _slt, font_size=30, color=GREEN)",
+        ))
 def _emit_derivative(L, DV, mk, readout):         pass
