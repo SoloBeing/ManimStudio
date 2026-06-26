@@ -109,6 +109,39 @@ def test_registered_under_funcgraph():
     assert _BUILDERS["funcgraph"] is build_funcgraph_source
 
 
+def test_tracer_emits_valuetracker():
+    src = _param(param_curves=[{"x_expr": "cos(t)", "y_expr": "sin(t)"}],
+                 tracer={"on": True, "color": "yellow"})
+    assert "_tval = ValueTracker(" in src
+    assert "always_redraw(lambda: Dot(axes.c2p(_p0_x(_tval.get_value())" in src
+    assert "_tval.animate.set_value(" in src
+    _compiles(src)
+
+
+def test_tracer_off_emits_nothing():
+    src = _param(param_curves=[{"x_expr": "cos(t)", "y_expr": "sin(t)"}],
+                 tracer={"on": False})
+    assert "ValueTracker(" not in src
+    _compiles(src)
+
+
+def test_velocity_requires_tracer():
+    # velocity on but tracer off -> no vector, no sweep
+    src = _param(param_curves=[{"x_expr": "cos(t)", "y_expr": "sin(t)"}],
+                 tracer={"on": False}, velocity={"on": True})
+    assert "_vel_arrow" not in src and "_vec" not in src
+    assert "ValueTracker(" not in src
+    _compiles(src)
+
+
+def test_velocity_with_tracer_emits_arrow():
+    src = _param(param_curves=[{"x_expr": "cos(t)", "y_expr": "sin(t)"}],
+                 tracer={"on": True}, velocity={"on": True, "color": "green", "scale": 1.0})
+    assert "def _vel_arrow(" in src
+    assert "_vec = always_redraw(lambda: _vel_arrow(axes, _p0_x, _p0_y" in src
+    _compiles(src)
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 

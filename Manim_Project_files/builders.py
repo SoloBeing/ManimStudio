@@ -1918,11 +1918,51 @@ def _build_parametric_source(
     return _join(L)
 
 
-_VEL_ARROW_SRC = []
+_VEL_ARROW_SRC = [
+    "def _vel_arrow(axes, fx, fy, t, k, color):",
+    "    # Central-difference velocity (x'(t), y'(t)); skip a degenerate (~0) vector.",
+    "    h = 1e-3",
+    "    try:",
+    "        with np.errstate(all='ignore'):",
+    "            vx = (fx(t + h) - fx(t - h)) / (2 * h)",
+    "            vy = (fy(t + h) - fy(t - h)) / (2 * h)",
+    "            x0 = float(fx(t)); y0 = float(fy(t))",
+    "    except Exception:",
+    "        return VGroup()",
+    "    if not all(np.isfinite(v) for v in (vx, vy, x0, y0)):",
+    "        return VGroup()",
+    "    p = axes.c2p(x0, y0)",
+    "    q = axes.c2p(x0 + vx * k, y0 + vy * k)",
+    "    if np.linalg.norm(np.array(q) - np.array(p)) < 1e-3:",
+    "        return VGroup()",
+    "    return Arrow(p, q, buff=0, color=color, stroke_width=4)",
+    "",
+]
 
 
 def _emit_param_tracer_velocity(L, TR, VE, t0, t1):
-    return None
+    # Tracer + velocity share ONE ValueTracker/sweep; velocity requires the tracer.
+    if not TR.get("on"):
+        return
+    tcolor = _text_color(TR.get("color", "yellow"))
+    L.append(f"        _tval = ValueTracker({t0:.4f})")
+    L.append(
+        f"        _dot = always_redraw(lambda: Dot(axes.c2p(_p0_x(_tval.get_value()), "
+        f"_p0_y(_tval.get_value())), radius=0.08, color={tcolor}))"
+    )
+    L.append("        self.add(_dot)")
+    if VE.get("on"):
+        vcolor = _text_color(VE.get("color", "green"))
+        scale = max(0.01, float(VE.get("scale", 1.0) or 1.0))
+        k = 0.3 * scale
+        L.append(
+            f"        _vec = always_redraw(lambda: _vel_arrow(axes, _p0_x, _p0_y, "
+            f"_tval.get_value(), {k:.4f}, {vcolor}))"
+        )
+        L.append("        self.add(_vec)")
+    L.append(
+        f"        self.play(_tval.animate.set_value({t1:.4f}), run_time=3.0, rate_func=linear)"
+    )
 
 
 def _emit_param_markers(L, TM):
