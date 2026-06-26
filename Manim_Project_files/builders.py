@@ -2048,3 +2048,182 @@ def _emit_derivative(L, DV, mk, readout):
             f"Text(\"f'(x)\", font_size=22, color={color})",
             f"MathTex(r\"f'(x)\", font_size=30, color={color})",
         ))
+
+
+# ── Polar Plane ────────────────────────────────────────────────────────────
+_DEG2RAD = 3.141592653589793 / 180.0
+_POLAR_LABEL_DEGS = (0, 45, 90, 135, 180, 225, 270, 315)
+_POLAR_POINTS_DEFAULT = {"on": False, "coords": "",  "color": "yellow"}
+_POLAR_SECTOR_DEFAULT = {"on": False, "start_deg": 0.0, "end_deg": 90.0, "color": "teal"}
+_POLAR_RADIAL_DEFAULT = {"on": False, "angle_deg": 30.0, "color": "red"}
+
+
+def _polar_expr(expr, label):
+    """Friendly-syntax translate (^ -> **) then validate; default cardioid."""
+    return _validate_expr(str(expr or "").replace("^", "**"), label, default="1 + cos(theta)")
+
+
+def _parse_polar_points(s):
+    """Parse 'r,deg; r,deg' text into a capped list of (r, deg) float pairs."""
+    out = []
+    for chunk in str(s or "").replace("\n", ";").split(";"):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        parts = chunk.split(",")
+        if len(parts) != 2:
+            continue
+        try:
+            out.append((float(parts[0]), float(parts[1])))
+        except ValueError:
+            continue
+        if len(out) >= 12:
+            break
+    return out
+
+
+def build_polar_source(
+    curves,
+    radius_max=4.0, radius_step=1.0, azimuth_divisions=12, size=6.0,
+    theta_min=0.0, theta_max=6.2832, show_curve_labels=True,
+    points=None, sector=None, radial_line=None,
+    cam_zoom=1.0, title="",
+    use_latex=False, anim="Create",
+):
+    P  = {**_POLAR_POINTS_DEFAULT, **(points or {})}
+    S  = {**_POLAR_SECTOR_DEFAULT, **(sector or {})}
+    RL = {**_POLAR_RADIAL_DEFAULT, **(radial_line or {})}
+
+    # --- numeric guards --------------------------------------------------
+    rmax  = float(radius_max)  if float(radius_max)  > 0 else 4.0
+    rstep = float(radius_step) if float(radius_step) > 0 else 1.0
+    adiv  = max(2, min(48, int(azimuth_divisions or 12)))
+    sz    = float(size) if float(size) > 0 else 6.0
+    t0, t1 = float(theta_min), float(theta_max)
+    if t0 >= t1:
+        t0, t1 = 0.0, 6.2832
+    dt = max(0.005, (t1 - t0) / 400.0)
+    zoom_f = float(cam_zoom or 1.0)
+
+    # --- curves (validate, fill defaults, cap at 3) ----------------------
+    clean = []
+    for i, c in enumerate(curves or []):
+        c = c or {}
+        raw = str(c.get("expr", "")).strip()
+        if not raw:
+            continue
+        body  = _polar_expr(raw, f"Curve {i + 1} r(theta)")
+        color = _text_color(c.get("color", "blue"))
+        label = str(c.get("label", "")).strip()[:24]
+        clean.append((body, color, label))
+        if len(clean) >= 3:
+            break
+    if not clean:
+        clean = [("1 + cos(theta)", "BLUE", "")]
+
+    # --- header + namespace + robust polar-plot helper -------------------
+    L = [
+        "from manim import *",
+        "import numpy as np",
+        f"from numpy import ({_FG_NAMESPACE})",
+        "",
+        "",
+        "def _polar_plot(plane, r_func, t0, t1, dt, color, width):",
+        "    # Sample theta over [t0, t1]; break the path on non-finite r so a",
+        "    # divergent r renders as a gap (mirrors funcgraph's _fg_plot).",
+        "    grp = VGroup()",
+        "    pts = []",
+        "    n = int(round((t1 - t0) / dt)) + 1",
+        "    for k in range(n):",
+        "        th = t0 + k * dt",
+        "        try:",
+        "            with np.errstate(all='ignore'):",
+        "                rr = float(r_func(th))",
+        "        except Exception:",
+        "            rr = float('nan')",
+        "        if not np.isfinite(rr):",
+        "            if len(pts) >= 2:",
+        "                m = VMobject(color=color, stroke_width=width)",
+        "                m.set_points_as_corners(pts)",
+        "                grp.add(m)",
+        "            pts = []",
+        "        else:",
+        "            pts.append(plane.polar_to_point(rr, th))",
+        "    if len(pts) >= 2:",
+        "        m = VMobject(color=color, stroke_width=width)",
+        "        m.set_points_as_corners(pts)",
+        "        grp.add(m)",
+        "    return grp",
+        "",
+    ]
+    if abs(zoom_f - 1.0) > 0.02:
+        L += [
+            f"config.frame_width  = {14.222 / zoom_f:.3f}",
+            f"config.frame_height = {8.0 / zoom_f:.3f}",
+            "",
+        ]
+
+    # --- scene: PolarPlane ----------------------------------------------
+    L += [
+        "class ManimScene(Scene):",
+        "    def construct(self):",
+        "        plane = PolarPlane(",
+        f"            size={sz:.4f}, radius_max={rmax:.4f}, radius_step={rstep:.4f},",
+        f"            azimuth_step={adiv}, azimuth_units='PI radians',",
+        "            radius_config={'stroke_color': GREY, 'font_size': 28},",
+        "        )",
+    ]
+    # labels: add_coordinates (MathTex) under use_latex, else manual Text degrees
+    if use_latex:
+        L.append("        plane.add_coordinates()")
+    L.append("        self.play(Create(plane), run_time=0.9)")
+    if not use_latex:
+        L.append("        _lbls = VGroup()")
+        for d in _POLAR_LABEL_DEGS:
+            rad = d * _DEG2RAD
+            L.append(
+                f"        _lbls.add(Text('{d}°', font_size=20, color=GREY_B)"
+                f".move_to(plane.polar_to_point({rmax * 1.08:.4f}, {rad:.4f})))"
+            )
+        L.append("        self.play(FadeIn(_lbls), run_time=0.5)")
+
+    # optional title (Text — LaTeX-free)
+    ttl = str(title or "").strip()[:48]
+    if ttl:
+        L.append(f"        _title = Text({ttl!r}, font_size=30, color=WHITE).to_edge(UP, buff=0.3)")
+        L.append("        self.play(FadeIn(_title), run_time=0.4)")
+
+    # --- curves (1..3) ---------------------------------------------------
+    wrap_tmpl, rt = _FG_ANIMS.get(str(anim or "Create"), _FG_ANIMS["Create"])
+    for i, (body, color, label) in enumerate(clean):
+        g, fn = f"g{i}", f"_r{i}"
+        L += [
+            f"        def {fn}(theta):",
+            f"            return {body}",
+            f"        {g} = _polar_plot(plane, {fn}, {t0:.4f}, {t1:.4f}, {dt:.4f}, {color}, 3.0)",
+        ]
+        play = wrap_tmpl.format(g=g)
+        if show_curve_labels and label:
+            lv = f"lbl{i}"
+            L.append(f"        {lv} = Text({label!r}, font_size=22, color={color})")
+            if i == 0:
+                L.append(f"        {lv}.to_corner(UR, buff=0.4)")
+            else:
+                L.append(f"        {lv}.next_to(lbl{i - 1}, DOWN, buff=0.15, aligned_edge=LEFT)")
+            L.append(f"        self.play({play}, FadeIn({lv}), run_time={rt:.1f})")
+        else:
+            L.append(f"        self.play({play}, run_time={rt:.1f})")
+
+    # --- extras (Tasks 2-4) ----------------------------------------------
+    _emit_polar_points(L, P)          # Task 2
+    _emit_polar_sector(L, S, rmax)    # Task 3
+    _emit_polar_radial(L, RL, rmax)   # Task 4
+
+    L.append("        self.wait(1.5)")
+    return _join(L)
+
+
+# Extra emitters — filled in by Tasks 2-4; no-ops until then.
+def _emit_polar_points(L, P):        pass
+def _emit_polar_sector(L, S, rmax):  pass
+def _emit_polar_radial(L, RL, rmax): pass
