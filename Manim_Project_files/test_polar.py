@@ -109,6 +109,20 @@ def test_sector_off_emits_nothing():
     _compiles(src)
 
 
+def test_radial_line_overlay_emits_line():
+    src = build_polar_source([{"expr": "2"}],
+                             radial_line={"on": True, "angle_deg": 30, "color": "red"})
+    assert "Line(plane.polar_to_point(0" in src
+    assert "Create(_radial)" in src
+    _compiles(src)
+
+
+def test_radial_off_emits_nothing():
+    src = build_polar_source([{"expr": "2"}], radial_line={"on": False})
+    assert "_radial" not in src
+    _compiles(src)
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 

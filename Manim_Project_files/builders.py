@@ -2259,4 +2259,13 @@ def _emit_polar_sector(L, S, rmax):
         f"fill_color={color}, fill_opacity=0.35)",
         "        self.play(FadeIn(_wedge), run_time=0.8)",
     ]
-def _emit_polar_radial(L, RL, rmax): pass
+def _emit_polar_radial(L, RL, rmax):
+    if not RL.get("on"):
+        return
+    color = _text_color(RL.get("color", "red"))
+    rad = float(RL.get("angle_deg", 30.0)) * _DEG2RAD
+    L += [
+        f"        _radial = Line(plane.polar_to_point(0, {rad:.5f}), "
+        f"plane.polar_to_point({rmax:.4f}, {rad:.5f}), color={color}, stroke_width=4)",
+        "        self.play(Create(_radial), run_time=0.6)",
+    ]
