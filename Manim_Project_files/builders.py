@@ -1589,12 +1589,17 @@ def _funcgraph_expr(expr, label):
 
 
 def _emit_cartesian_axes(L, xlo, xhi, xs, ylo, yhi, ys, show_grid, use_latex=False,
-                         x_length=11.0, y_length=6.0):
+                         x_length=11.0, y_length=6.0,
+                         grid_x_length=None, grid_y_length=None):
     """Append the shared Cartesian axes block to L (used by funcgraph + parametric).
 
     Emits the Axes definition, optional MathTex tick labels (use_latex only), an
     optional NumberPlane grid, then Create(axes). The caller emits the
     `class ManimScene(Scene):` / `def construct(self):` header first.
+
+    grid_x_length / grid_y_length, when not None, size the NumberPlane to match
+    the (possibly equal-aspect) axes so the grid lattice coincides with the axis
+    ticks. funcgraph leaves them None → grid output is byte-identical.
     """
     L += [
         "        axes = Axes(",
@@ -1611,6 +1616,10 @@ def _emit_cartesian_axes(L, xlo, xhi, xs, ylo, yhi, ys, show_grid, use_latex=Fal
             "        grid = NumberPlane(",
             f"            x_range=[{xlo:.4f}, {xhi:.4f}],",
             f"            y_range=[{ylo:.4f}, {yhi:.4f}],",
+        ]
+        if grid_x_length is not None and grid_y_length is not None:
+            L.append(f"            x_length={grid_x_length:g}, y_length={grid_y_length:g},")
+        L += [
             "            background_line_style=dict(stroke_color=BLUE_E, stroke_opacity=0.25),",
             "        )",
             "        self.play(FadeIn(grid), run_time=0.6)",
@@ -1876,7 +1885,8 @@ def _build_parametric_source(
     _scale = min(11.0 / _xspan, 6.0 / _yspan)
     _plen_x, _plen_y = _scale * _xspan, _scale * _yspan
     _emit_cartesian_axes(L, xlo, xhi, xs, ylo, yhi, ys, show_grid, use_latex=use_latex,
-                         x_length=_plen_x, y_length=_plen_y)
+                         x_length=_plen_x, y_length=_plen_y,
+                         grid_x_length=_plen_x, grid_y_length=_plen_y)
 
     # axis labels + title (Text — never Tex), identical idiom to funcgraph
     intro = []

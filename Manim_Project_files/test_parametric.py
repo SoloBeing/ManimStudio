@@ -172,6 +172,26 @@ def test_parametric_uses_equal_aspect_axes():
     _compiles(src)
 
 
+def test_parametric_grid_matches_axis_scale():
+    # With Grid on, the NumberPlane must take the same equal-aspect lengths as the
+    # axes so its lattice coincides with the axis ticks (radius-3 circle crosses the
+    # gridline labeled 3, not ~2.25).
+    src = _param(param_curves=[{"x_expr": "3*cos(t)", "y_expr": "3*sin(t)"}],
+                 show_grid=True)
+    grid = src.split("grid = NumberPlane(", 1)[1]
+    assert "x_length=7.5, y_length=6," in grid
+    _compiles(src)
+
+
+def test_function_grid_unchanged():
+    # funcgraph never passes grid lengths -> its NumberPlane stays length-free
+    # (byte-identical to pre-parametric output).
+    src = build_funcgraph_source([{"expr": "x^2"}], show_grid=True)
+    grid = src.split("grid = NumberPlane(", 1)[1]
+    assert "x_length=" not in grid.split(")", 1)[0]
+    _compiles(src)
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 
