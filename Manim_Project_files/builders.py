@@ -2243,5 +2243,20 @@ def _emit_polar_points(L, P):
             f".next_to(plane.polar_to_point({r:.4f}, {rad:.5f}), UR, buff=0.05))"
         )
     L.append("        self.play(FadeIn(_pts), run_time=0.6)")
-def _emit_polar_sector(L, S, rmax):  pass
+def _emit_polar_sector(L, S, rmax):
+    if not S.get("on"):
+        return
+    color = _text_color(S.get("color", "teal"))
+    a0 = float(S.get("start_deg", 0.0)) * _DEG2RAD
+    a1 = float(S.get("end_deg", 90.0)) * _DEG2RAD
+    if a1 < a0:
+        a0, a1 = a1, a0
+    L += [
+        f"        _arc_ts = np.linspace({a0:.5f}, {a1:.5f}, 60)",
+        f"        _wedge_pts = [plane.polar_to_point(0, {a0:.5f})] + "
+        f"[plane.polar_to_point({rmax:.4f}, _a) for _a in _arc_ts]",
+        f"        _wedge = Polygon(*_wedge_pts, stroke_width=2, stroke_color={color}, "
+        f"fill_color={color}, fill_opacity=0.35)",
+        "        self.play(FadeIn(_wedge), run_time=0.8)",
+    ]
 def _emit_polar_radial(L, RL, rmax): pass

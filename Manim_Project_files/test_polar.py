@@ -94,6 +94,21 @@ def test_points_off_emits_nothing():
     _compiles(src)
 
 
+def test_sector_overlay_emits_polygon_wedge():
+    src = build_polar_source([{"expr": "2"}],
+                             sector={"on": True, "start_deg": 0, "end_deg": 90, "color": "teal"})
+    assert "Polygon(" in src
+    assert "np.linspace(" in src
+    assert "plane.polar_to_point(0" in src     # wedge apex at the origin
+    _compiles(src)
+
+
+def test_sector_off_emits_nothing():
+    src = build_polar_source([{"expr": "2"}], sector={"on": False})
+    assert "Polygon(" not in src
+    _compiles(src)
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 
