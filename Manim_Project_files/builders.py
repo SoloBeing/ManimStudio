@@ -2224,6 +2224,24 @@ def build_polar_source(
 
 
 # Extra emitters — filled in by Tasks 2-4; no-ops until then.
-def _emit_polar_points(L, P):        pass
+def _emit_polar_points(L, P):
+    if not P.get("on"):
+        return
+    pts = _parse_polar_points(P.get("coords", ""))
+    if not pts:
+        return
+    color = _text_color(P.get("color", "yellow"))
+    L.append("        _pts = VGroup()")
+    for (r, d) in pts:
+        rad = d * _DEG2RAD
+        L.append(
+            f"        _pts.add(Dot(plane.polar_to_point({r:.4f}, {rad:.5f}), "
+            f"radius=0.07, color={color}))"
+        )
+        L.append(
+            f"        _pts.add(Text('({r:g}, {d:g}°)', font_size=16, color={color})"
+            f".next_to(plane.polar_to_point({r:.4f}, {rad:.5f}), UR, buff=0.05))"
+        )
+    L.append("        self.play(FadeIn(_pts), run_time=0.6)")
 def _emit_polar_sector(L, S, rmax):  pass
 def _emit_polar_radial(L, RL, rmax): pass

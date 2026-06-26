@@ -73,6 +73,27 @@ def test_all_animation_styles_compile():
         _compiles(build_polar_source([{"expr": "2"}], anim=a))
 
 
+def test_points_overlay_emits_dots():
+    src = build_polar_source([{"expr": "2"}],
+                             points={"on": True, "coords": "2,45; 3,135", "color": "yellow"})
+    assert "Dot(plane.polar_to_point(" in src
+    assert src.count("Dot(") == 2          # two points parsed
+    _compiles(src)
+
+
+def test_points_malformed_skipped():
+    src = build_polar_source([{"expr": "2"}],
+                             points={"on": True, "coords": "2,45; garbage; 3"})
+    assert src.count("Dot(") == 1          # only the valid "2,45" pair survives
+    _compiles(src)
+
+
+def test_points_off_emits_nothing():
+    src = build_polar_source([{"expr": "2"}], points={"on": False, "coords": "2,45"})
+    assert "Dot(" not in src
+    _compiles(src)
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 
