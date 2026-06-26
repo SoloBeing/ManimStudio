@@ -142,6 +142,29 @@ def test_velocity_with_tracer_emits_arrow():
     _compiles(src)
 
 
+def test_markers_emit_dots():
+    src = _param(param_curves=[{"x_expr": "cos(t)", "y_expr": "sin(t)"}],
+                 t_markers={"on": True, "values": "0; 1.57", "color": "pink"})
+    assert "Dot(axes.c2p(_p0_x(" in src
+    assert src.count("Dot(axes.c2p(_p0_x(") == 2
+    assert "t=0" in src and "t=1.57" in src
+    _compiles(src)
+
+
+def test_markers_malformed_skipped():
+    src = _param(param_curves=[{"x_expr": "cos(t)", "y_expr": "sin(t)"}],
+                 t_markers={"on": True, "values": "0; garbage; 3.14"})
+    assert src.count("Dot(axes.c2p(_p0_x(") == 2  # only 0 and 3.14 survive
+    _compiles(src)
+
+
+def test_markers_off_emits_nothing():
+    src = _param(param_curves=[{"x_expr": "cos(t)", "y_expr": "sin(t)"}],
+                 t_markers={"on": False, "values": "0; 1"})
+    assert "_tm" not in src
+    _compiles(src)
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 

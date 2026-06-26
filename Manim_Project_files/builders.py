@@ -1965,8 +1965,40 @@ def _emit_param_tracer_velocity(L, TR, VE, t0, t1):
     )
 
 
+def _parse_t_values(s):
+    """Parse '0; 1.57; 3.14' (or newline-separated) into a capped list of floats."""
+    out = []
+    for chunk in str(s or "").replace("\n", ";").split(";"):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        try:
+            out.append(float(chunk))
+        except ValueError:
+            continue
+        if len(out) >= 12:
+            break
+    return out
+
+
 def _emit_param_markers(L, TM):
-    return None
+    if not TM.get("on"):
+        return
+    vals = _parse_t_values(TM.get("values", ""))
+    if not vals:
+        return
+    color = _text_color(TM.get("color", "pink"))
+    L.append("        _tm = VGroup()")
+    for tv in vals:
+        L.append(
+            f"        _tm.add(Dot(axes.c2p(_p0_x({tv:.5f}), _p0_y({tv:.5f})), "
+            f"radius=0.07, color={color}))"
+        )
+        L.append(
+            f"        _tm.add(Text('t={tv:g}', font_size=16, color={color})"
+            f".next_to(axes.c2p(_p0_x({tv:.5f}), _p0_y({tv:.5f})), UR, buff=0.05))"
+        )
+    L.append("        self.play(FadeIn(_tm), run_time=0.6)")
 
 
 # ── Calculus Toolkit ──────────────────────────────────────────────────────
