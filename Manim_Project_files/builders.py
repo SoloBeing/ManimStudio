@@ -1618,13 +1618,23 @@ def _emit_cartesian_axes(L, xlo, xhi, xs, ylo, yhi, ys, show_grid, use_latex=Fal
 
 
 def build_funcgraph_source(
-    curves,
+    curves=None,
     x_min=-5.0, x_max=5.0, y_min=-4.0, y_max=4.0,
     x_step=None, y_step=None,
     show_grid=False, cam_zoom=1.0,
     anim="Create",
     axis_label_x="x", axis_label_y="y", title="",
+    plot_kind="function",
+    param_curves=None, t_min=0.0, t_max=6.2832,
+    tracer=None, velocity=None, t_markers=None,
+    use_latex=False,
 ):
+    if str(plot_kind) == "parametric":
+        return _build_parametric_source(
+            param_curves, x_min, x_max, y_min, y_max, x_step, y_step,
+            show_grid, cam_zoom, anim, axis_label_x, axis_label_y, title,
+            t_min, t_max, tracer, velocity, t_markers, use_latex,
+        )
     # --- numeric ranges (sane + ordered) ---------------------------------
     xlo, xhi = float(x_min), float(x_max)
     if xlo >= xhi:
@@ -1746,6 +1756,177 @@ def build_funcgraph_source(
 
     L.append("        self.wait(1.5)")
     return _join(L)
+
+
+# ── Parametric curves (extends the funcgraph mode) ─────────────────────────
+_PARAM_TRACER_DEFAULT   = {"on": False, "color": "yellow"}
+_PARAM_VELOCITY_DEFAULT = {"on": False, "color": "green", "scale": 1.0}
+_PARAM_MARKERS_DEFAULT  = {"on": False, "values": "", "color": "pink"}
+
+_PARAM_PLOT_SRC = [
+    "def _param_plot(axes, fx, fy, t0, t1, dt, color, width):",
+    "    # t-driven twin of _fg_plot: sample t, compute (fx,fy), break the path on",
+    "    # any non-finite coord so a divergent curve renders as a gap, not a crash.",
+    "    grp = VGroup()",
+    "    pts = []",
+    "    n = int(round((t1 - t0) / dt)) + 1",
+    "    for k in range(n):",
+    "        tt = t0 + k * dt",
+    "        try:",
+    "            with np.errstate(all='ignore'):",
+    "                xx = float(fx(tt)); yy = float(fy(tt))",
+    "        except Exception:",
+    "            xx = yy = float('nan')",
+    "        if not (np.isfinite(xx) and np.isfinite(yy)):",
+    "            if len(pts) >= 2:",
+    "                m = VMobject(color=color, stroke_width=width)",
+    "                m.set_points_as_corners([axes.c2p(px, py) for px, py in pts])",
+    "                grp.add(m)",
+    "            pts = []",
+    "        else:",
+    "            pts.append((xx, yy))",
+    "    if len(pts) >= 2:",
+    "        m = VMobject(color=color, stroke_width=width)",
+    "        m.set_points_as_corners([axes.c2p(px, py) for px, py in pts])",
+    "        grp.add(m)",
+    "    return grp",
+    "",
+]
+
+
+def _param_expr(expr, label, default):
+    """Friendly-syntax translate (^ -> **) then validate against the blocklists."""
+    return _validate_expr(str(expr or "").replace("^", "**"), label, default=default)
+
+
+def _build_parametric_source(
+    param_curves, x_min, x_max, y_min, y_max, x_step, y_step,
+    show_grid, cam_zoom, anim, axis_label_x, axis_label_y, title,
+    t_min, t_max, tracer, velocity, t_markers, use_latex,
+):
+    TR = {**_PARAM_TRACER_DEFAULT, **(tracer or {})}
+    VE = {**_PARAM_VELOCITY_DEFAULT, **(velocity or {})}
+    TM = {**_PARAM_MARKERS_DEFAULT, **(t_markers or {})}
+
+    # --- axes ranges (same guards as funcgraph) --------------------------
+    xlo, xhi = float(x_min), float(x_max)
+    if xlo >= xhi:
+        xlo, xhi = -5.0, 5.0
+    ylo, yhi = float(y_min), float(y_max)
+    if ylo >= yhi:
+        ylo, yhi = -4.0, 4.0
+    xs = max(0.01, float(x_step) if x_step else (xhi - xlo) / 10.0)
+    ys = max(0.01, float(y_step) if y_step else (yhi - ylo) / 8.0)
+
+    # --- t sampling range ------------------------------------------------
+    t0, t1 = float(t_min), float(t_max)
+    if t0 >= t1:
+        t0, t1 = 0.0, 6.2832
+    dt = max(0.005, (t1 - t0) / 400.0)
+    zoom_f = float(cam_zoom or 1.0)
+
+    # --- curves (validate x/y, fill defaults, cap at 3) ------------------
+    clean = []
+    for i, c in enumerate(param_curves or []):
+        c = c or {}
+        xr = str(c.get("x_expr", "")).strip()
+        yr = str(c.get("y_expr", "")).strip()
+        if not xr and not yr:
+            continue
+        xbody = _param_expr(xr or "cos(t)", f"Curve {i + 1} x(t)", "cos(t)")
+        ybody = _param_expr(yr or "sin(t)", f"Curve {i + 1} y(t)", "sin(t)")
+        color = _text_color(c.get("color", "blue"))
+        label = str(c.get("label", "")).strip()[:24]
+        clean.append((xbody, ybody, color, label))
+        if len(clean) >= 3:
+            break
+    if not clean:
+        clean = [("cos(t)", "sin(t)", "BLUE", "")]
+
+    need_vel = bool(TR.get("on") and VE.get("on"))
+
+    # --- header: namespace + helpers -------------------------------------
+    L = [
+        "from manim import *",
+        "import numpy as np",
+        f"from numpy import ({_FG_NAMESPACE})",
+        "",
+        "",
+    ]
+    L += _PARAM_PLOT_SRC
+    if need_vel:
+        L += _VEL_ARROW_SRC
+    if abs(zoom_f - 1.0) > 0.02:
+        L += [
+            f"config.frame_width  = {14.222 / zoom_f:.3f}",
+            f"config.frame_height = {8.0 / zoom_f:.3f}",
+            "",
+        ]
+
+    # --- scene -----------------------------------------------------------
+    L += [
+        "class ManimScene(Scene):",
+        "    def construct(self):",
+    ]
+    _emit_cartesian_axes(L, xlo, xhi, xs, ylo, yhi, ys, show_grid, use_latex=use_latex)
+
+    # axis labels + title (Text — never Tex), identical idiom to funcgraph
+    intro = []
+    xlab = str(axis_label_x or "").strip()[:24]
+    ylab = str(axis_label_y or "").strip()[:24]
+    ttl = str(title or "").strip()[:48]
+    if xlab:
+        L.append(f"        x_axis_lbl = Text({xlab!r}, font_size=24, color=WHITE).next_to(axes.x_axis, RIGHT, buff=0.2)")
+        intro.append("FadeIn(x_axis_lbl)")
+    if ylab:
+        L.append(f"        y_axis_lbl = Text({ylab!r}, font_size=24, color=WHITE).next_to(axes.y_axis.get_top(), RIGHT, buff=0.2)")
+        intro.append("FadeIn(y_axis_lbl)")
+    if ttl:
+        L.append(f"        plot_title = Text({ttl!r}, font_size=30, color=WHITE).to_edge(UP, buff=0.3)")
+        intro.append("FadeIn(plot_title)")
+    if intro:
+        L.append(f"        self.play({', '.join(intro)}, run_time=0.5)")
+
+    # curves (1..3)
+    wrap_tmpl, rt = _FG_ANIMS.get(str(anim or "Create"), _FG_ANIMS["Create"])
+    for i, (xbody, ybody, color, label) in enumerate(clean):
+        g = f"g{i}"
+        L += [
+            f"        def _p{i}_x(t):",
+            f"            return {xbody}",
+            f"        def _p{i}_y(t):",
+            f"            return {ybody}",
+            f"        {g} = _param_plot(axes, _p{i}_x, _p{i}_y, {t0:.4f}, {t1:.4f}, {dt:.4f}, {color}, 2.5)",
+        ]
+        play = wrap_tmpl.format(g=g)
+        if label:
+            lv = f"lbl{i}"
+            L.append(f"        {lv} = Text({label!r}, font_size=22, color={color})")
+            if i == 0:
+                L.append(f"        {lv}.to_corner(UR, buff=0.4)")
+            else:
+                L.append(f"        {lv}.next_to(lbl{i - 1}, DOWN, buff=0.15, aligned_edge=LEFT)")
+            L.append(f"        self.play({play}, FadeIn({lv}), run_time={rt:.1f})")
+        else:
+            L.append(f"        self.play({play}, run_time={rt:.1f})")
+
+    # extras (Tasks 3-4 add their emitters here)
+    _emit_param_tracer_velocity(L, TR, VE, t0, t1)
+    _emit_param_markers(L, TM)
+
+    L.append("        self.wait(1.5)")
+    return _join(L)
+
+
+_VEL_ARROW_SRC = []
+
+
+def _emit_param_tracer_velocity(L, TR, VE, t0, t1):
+    return None
+
+
+def _emit_param_markers(L, TM):
+    return None
 
 
 # ── Calculus Toolkit ──────────────────────────────────────────────────────
