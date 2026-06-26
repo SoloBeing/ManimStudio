@@ -1588,6 +1588,35 @@ def _funcgraph_expr(expr, label):
     return _validate_expr(str(expr or "").replace("^", "**"), label, default="x**2")
 
 
+def _emit_cartesian_axes(L, xlo, xhi, xs, ylo, yhi, ys, show_grid, use_latex=False):
+    """Append the shared Cartesian axes block to L (used by funcgraph + parametric).
+
+    Emits the Axes definition, optional MathTex tick labels (use_latex only), an
+    optional NumberPlane grid, then Create(axes). The caller emits the
+    `class ManimScene(Scene):` / `def construct(self):` header first.
+    """
+    L += [
+        "        axes = Axes(",
+        f"            x_range=[{xlo:.4f}, {xhi:.4f}, {xs:.4f}],",
+        f"            y_range=[{ylo:.4f}, {yhi:.4f}, {ys:.4f}],",
+        "            x_length=11, y_length=6,",
+        "            axis_config=dict(color=GREY, include_tip=True),",
+        "        )",
+    ]
+    if use_latex:
+        L.append("        axes.add_coordinates()")
+    if show_grid:
+        L += [
+            "        grid = NumberPlane(",
+            f"            x_range=[{xlo:.4f}, {xhi:.4f}],",
+            f"            y_range=[{ylo:.4f}, {yhi:.4f}],",
+            "            background_line_style=dict(stroke_color=BLUE_E, stroke_opacity=0.25),",
+            "        )",
+            "        self.play(FadeIn(grid), run_time=0.6)",
+        ]
+    L.append("        self.play(Create(axes), run_time=0.8)")
+
+
 def build_funcgraph_source(
     curves,
     x_min=-5.0, x_max=5.0, y_min=-4.0, y_max=4.0,
@@ -1672,25 +1701,8 @@ def build_funcgraph_source(
     L += [
         "class ManimScene(Scene):",
         "    def construct(self):",
-        "        axes = Axes(",
-        f"            x_range=[{xlo:.4f}, {xhi:.4f}, {xs:.4f}],",
-        f"            y_range=[{ylo:.4f}, {yhi:.4f}, {ys:.4f}],",
-        "            x_length=11, y_length=6,",
-        "            axis_config=dict(color=GREY, include_tip=True),",
-        "        )",
     ]
-
-    if show_grid:
-        L += [
-            "        grid = NumberPlane(",
-            f"            x_range=[{xlo:.4f}, {xhi:.4f}],",
-            f"            y_range=[{ylo:.4f}, {yhi:.4f}],",
-            "            background_line_style=dict(stroke_color=BLUE_E, stroke_opacity=0.25),",
-            "        )",
-            "        self.play(FadeIn(grid), run_time=0.6)",
-        ]
-
-    L.append("        self.play(Create(axes), run_time=0.8)")
+    _emit_cartesian_axes(L, xlo, xhi, xs, ylo, yhi, ys, show_grid, use_latex=False)
 
     # axis labels + title — Text(), never Tex, so the scene stays LaTeX-free
     intro = []
