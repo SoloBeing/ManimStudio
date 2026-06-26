@@ -2223,7 +2223,7 @@ def build_polar_source(
     return _join(L)
 
 
-# Extra emitters — filled in by Tasks 2-4; no-ops until then.
+# Overlay emitters — each appends its geometry to L only when its dict's "on" is set.
 def _emit_polar_points(L, P):
     if not P.get("on"):
         return
@@ -2243,6 +2243,8 @@ def _emit_polar_points(L, P):
             f".next_to(plane.polar_to_point({r:.4f}, {rad:.5f}), UR, buff=0.05))"
         )
     L.append("        self.play(FadeIn(_pts), run_time=0.6)")
+
+
 def _emit_polar_sector(L, S, rmax):
     if not S.get("on"):
         return
@@ -2259,6 +2261,8 @@ def _emit_polar_sector(L, S, rmax):
         f"fill_color={color}, fill_opacity=0.35)",
         "        self.play(FadeIn(_wedge), run_time=0.8)",
     ]
+
+
 def _emit_polar_radial(L, RL, rmax):
     if not RL.get("on"):
         return
