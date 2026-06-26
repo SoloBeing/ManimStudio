@@ -165,6 +165,13 @@ def test_markers_off_emits_nothing():
     _compiles(src)
 
 
+def test_parametric_uses_equal_aspect_axes():
+    # default ranges (x -5..5 span 10, y -4..4 span 8) -> scale 0.75 -> x_length 7.5, y_length 6
+    src = _param(param_curves=[{"x_expr": "3*cos(t)", "y_expr": "3*sin(t)"}])
+    assert "x_length=7.5" in src and "y_length=6" in src
+    _compiles(src)
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 

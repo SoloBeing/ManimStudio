@@ -1588,7 +1588,8 @@ def _funcgraph_expr(expr, label):
     return _validate_expr(str(expr or "").replace("^", "**"), label, default="x**2")
 
 
-def _emit_cartesian_axes(L, xlo, xhi, xs, ylo, yhi, ys, show_grid, use_latex=False):
+def _emit_cartesian_axes(L, xlo, xhi, xs, ylo, yhi, ys, show_grid, use_latex=False,
+                         x_length=11.0, y_length=6.0):
     """Append the shared Cartesian axes block to L (used by funcgraph + parametric).
 
     Emits the Axes definition, optional MathTex tick labels (use_latex only), an
@@ -1599,7 +1600,7 @@ def _emit_cartesian_axes(L, xlo, xhi, xs, ylo, yhi, ys, show_grid, use_latex=Fal
         "        axes = Axes(",
         f"            x_range=[{xlo:.4f}, {xhi:.4f}, {xs:.4f}],",
         f"            y_range=[{ylo:.4f}, {yhi:.4f}, {ys:.4f}],",
-        "            x_length=11, y_length=6,",
+        f"            x_length={x_length:g}, y_length={y_length:g},",
         "            axis_config=dict(color=GREY, include_tip=True),",
         "        )",
     ]
@@ -1868,7 +1869,14 @@ def _build_parametric_source(
         "class ManimScene(Scene):",
         "    def construct(self):",
     ]
-    _emit_cartesian_axes(L, xlo, xhi, xs, ylo, yhi, ys, show_grid, use_latex=use_latex)
+    # Equal-aspect axis lengths so parametric shapes are geometrically faithful
+    # (a data-circle renders round). scale = screen-units per data-unit, the
+    # smaller of the two axis budgets (11 wide / 6 tall) so the plot still fits.
+    _xspan, _yspan = xhi - xlo, yhi - ylo
+    _scale = min(11.0 / _xspan, 6.0 / _yspan)
+    _plen_x, _plen_y = _scale * _xspan, _scale * _yspan
+    _emit_cartesian_axes(L, xlo, xhi, xs, ylo, yhi, ys, show_grid, use_latex=use_latex,
+                         x_length=_plen_x, y_length=_plen_y)
 
     # axis labels + title (Text — never Tex), identical idiom to funcgraph
     intro = []
