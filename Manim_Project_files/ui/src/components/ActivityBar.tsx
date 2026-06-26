@@ -10,6 +10,7 @@ const ITEMS: Array<{ mode: Mode; icon: string; label: string }> = [
   { mode: 'trig',        icon: '∿',   label: 'Trig' },
   { mode: 'funcgraph',   icon: 'ƒ',   label: 'Graph' },
   { mode: 'calculus',    icon: '∫',   label: 'Calc' },
+  { mode: 'polar',       icon: '◎',   label: 'Polar' },
   { mode: 'complex',     icon: 'ℂ',   label: 'Cplx' },
   { mode: 'linear',      icon: 'Mx',  label: 'LinAlg' },
   { mode: 'code',        icon: '</>',  label: 'Code' },
