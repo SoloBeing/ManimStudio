@@ -113,6 +113,7 @@ _BUILDERS = {
     "numberline":  builders.build_numberline_source,
     "funcgraph":   builders.build_funcgraph_source,
     "calculus":    builders.build_calculus_source,
+    "polar":       builders.build_polar_source,
 }
 
 

@@ -123,6 +123,27 @@ def test_radial_off_emits_nothing():
     _compiles(src)
 
 
+def test_registered_in_builders():
+    from api import _BUILDERS
+    assert "polar" in _BUILDERS
+
+
+def test_use_latex_toggles_add_coordinates_and_preflight():
+    from api import _source_needs_latex
+    params = dict(curves=[{"expr": "cos(3*theta)"}],
+                  points={"on": True, "coords": "2,45"},
+                  sector={"on": True, "start_deg": 0, "end_deg": 90},
+                  radial_line={"on": True, "angle_deg": 30})
+    off = build_polar_source(use_latex=False, **params)
+    assert "add_coordinates" not in off
+    assert not _source_needs_latex(off)
+    _compiles(off)
+    on = build_polar_source(use_latex=True, **params)
+    assert "plane.add_coordinates()" in on
+    assert _source_needs_latex(on)
+    _compiles(on)
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 
