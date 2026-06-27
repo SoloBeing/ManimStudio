@@ -280,6 +280,44 @@ def test_det_helper_values():
     assert _det([[1, 2, 3], [4, 5, 6], [7, 8, 10]]) == -3
 
 
+def test_matrix_static_fits_frame():
+    src = build_table_source(kind="matrix", data="1,2\n3,4")
+    _compiles(src)
+    assert "11.5 / m.width" in src and "m.scale(_sf)" in src
+
+
+def test_large_matrix_compiles_with_fit():
+    big = "\n".join(",".join(str(c) for c in range(8)) for _ in range(8))  # 8x8
+    src = build_table_source(kind="matrix", data=big)
+    _compiles(src)
+    assert ".scale(_sf)" in src
+
+
+def test_scalar_result_scaled_to_match_source():
+    src = build_table_source(kind="matrix", data="1,2\n3,4", operation="scalar", scalar=3)
+    _compiles(src)
+    assert "res.scale(_sf)" in src      # Transform target matches source size
+
+
+def test_matrix_no_dead_numpy_import():
+    src = build_table_source(kind="matrix", data="1,2\n3,4")
+    assert "import numpy as np" not in src
+
+
+def test_nan_inf_cells_rejected():
+    for bad in ("1,nan\n3,4", "1,inf\n3,4"):
+        try:
+            build_table_source(kind="matrix", data=bad, operation="scalar", scalar=2)
+        except ValueError:
+            continue
+        raise AssertionError(f"non-finite cell not rejected: {bad!r}")
+
+
+def test_table_scale_guarded_against_zero():
+    src = build_table_source(kind="table", data="1,2\n3,4")
+    assert "max(grp.width, 1e-6)" in src and "max(grp.height, 1e-6)" in src
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 

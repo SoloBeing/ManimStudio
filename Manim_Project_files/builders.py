@@ -1,4 +1,5 @@
 import ast as _ast
+import math
 from renderer import _BLOCKED_CALLS, _BLOCKED_ATTRS
 
 def _join(lines):
@@ -2723,7 +2724,7 @@ def _build_table_kind(grid, row_labels, col_labels, use_latex,
         L.append("        grp = VGroup(_title, t).arrange(DOWN, buff=0.4)")
     else:
         L.append("        grp = VGroup(t)")
-    L.append("        grp.scale(min(1.0, 6.5 / grp.width, 7.0 / grp.height))")
+    L.append("        grp.scale(min(1.0, 6.5 / max(grp.width, 1e-6), 7.0 / max(grp.height, 1e-6)))")
     zoom_f = float(cam_zoom or 1.0)
     if abs(zoom_f - 1.0) > 0.02:
         L.append(f"        grp.scale({zoom_f:.3f})")
@@ -2738,7 +2739,7 @@ def _build_matrix_kind(grid, bracket, operation, scalar, data2, mhighlight,
     lb, rb = _BRACKETS.get(str(bracket), _BRACKETS["[]"])
     op = str(operation or "none")
     zoom_f = float(cam_zoom or 1.0)
-    L = ["from manim import *", "import numpy as np", ""]
+    L = ["from manim import *", ""]
     if abs(zoom_f - 1.0) > 0.02:
         L += [f"config.frame_width  = {14.222 / zoom_f:.3f}",
               f"config.frame_height = {8.0 / zoom_f:.3f}", ""]
@@ -2777,10 +2778,14 @@ def _grid_to_floats(grid, label):
         frow = []
         for c in row:
             try:
-                frow.append(float(c))
+                v = float(c)
             except (TypeError, ValueError):
                 raise ValueError(
                     f"{label} requires numeric entries; got {c!r}.")
+            if not math.isfinite(v):
+                raise ValueError(
+                    f"{label} requires numeric entries; got {c!r}.")
+            frow.append(v)
         out.append(frow)
     return out
 
@@ -2794,10 +2799,13 @@ def _emit_scalar_mul(L, grid, lb, rb, scalar, intro, rt):
              f"left_bracket={lb!r}, right_bracket={rb!r})")
     L.append(f"        _k = MathTex(r'{_fmt_num(k)} \\cdot')")
     L.append("        _row = VGroup(_k, m).arrange(RIGHT, buff=0.25)")
+    L.append("        _sf = min(1.0, 11.5 / _row.width, 5.5 / _row.height)")
+    L.append("        _row.scale(_sf)")
     L.append(f"        self.play({intro}(_row), run_time={rt})")
     L.append("        self.wait(0.5)")
     L.append(f"        res = Matrix({_matrix_literal(res_grid)}, "
              f"left_bracket={lb!r}, right_bracket={rb!r})")
+    L.append("        res.scale(_sf)")
     L.append("        res.move_to(m)")
     L.append("        self.play(FadeOut(_k), Transform(m, res), run_time=1.2)")
 
@@ -2823,7 +2831,7 @@ def _emit_matrix_add(L, grid, data2, lb, rb, intro, rt):
     L.append(f"        mC = Matrix({_matrix_literal(C)}, "
              f"left_bracket={lb!r}, right_bracket={rb!r})")
     L.append("        _row = VGroup(mA, _plus, mB, _eq, mC).arrange(RIGHT, buff=0.3)")
-    L.append("        _row.scale(min(1.0, 12.0 / _row.width))")
+    L.append("        _row.scale(min(1.0, 11.5 / _row.width, 5.5 / _row.height))")
     L.append(f"        self.play({intro}(mA), {intro}(mB), FadeIn(_plus), run_time={rt})")
     L.append("        self.play(Write(_eq), FadeIn(mC), run_time=1.0)")
 
@@ -2832,10 +2840,13 @@ def _emit_transpose(L, grid, lb, rb, intro, rt):
     T = [list(col) for col in zip(*grid)]   # grid is rectangular (padded)
     L.append(f"        m = Matrix({_matrix_literal(grid)}, "
              f"left_bracket={lb!r}, right_bracket={rb!r})")
+    L.append("        _sf = min(1.0, 11.5 / m.width, 5.5 / m.height)")
+    L.append("        m.scale(_sf)")
     L.append(f"        self.play({intro}(m), run_time={rt})")
     L.append("        self.wait(0.4)")
     L.append(f"        mT = Matrix({_matrix_literal(T)}, "
              f"left_bracket={lb!r}, right_bracket={rb!r})")
+    L.append("        mT.scale(_sf)")
     L.append("        mT.move_to(m)")
     L.append("        _lbl = MathTex('A^T').next_to(mT, UP, buff=0.3)")
     L.append("        self.play(Transform(m, mT), FadeIn(_lbl), run_time=1.2)")
@@ -2859,6 +2870,8 @@ def _emit_determinant(L, grid, lb, rb, intro, rt):
     dstr = _fmt_num(_det(M))
     L.append(f"        m = Matrix({_matrix_literal(grid)}, "
              f"left_bracket={lb!r}, right_bracket={rb!r})")
+    L.append("        _sf = min(1.0, 11.5 / m.width, 5.5 / m.height)")
+    L.append("        m.scale(_sf)")
     L.append(f"        self.play({intro}(m), run_time={rt})")
     L.append(f"        _det = MathTex(r'\\det(A) = {dstr}', font_size=44)")
     L.append("        _det.next_to(m, DOWN, buff=0.5)")
@@ -2868,6 +2881,8 @@ def _emit_determinant(L, grid, lb, rb, intro, rt):
 def _emit_matrix_static(L, grid, lb, rb, mhighlight, intro, rt):
     L.append(f"        m = Matrix({_matrix_literal(grid)}, "
              f"left_bracket={lb!r}, right_bracket={rb!r})")
+    L.append("        _sf = min(1.0, 11.5 / m.width, 5.5 / m.height)")
+    L.append("        m.scale(_sf)")
     L.append(f"        self.play({intro}(m), run_time={rt})")
     H = mhighlight or {}
     if not H.get("on"):

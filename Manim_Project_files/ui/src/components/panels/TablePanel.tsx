@@ -1,8 +1,8 @@
-import { useImperativeHandle, useState } from 'react';
+import { useImperativeHandle, useRef, useState } from 'react';
 import { Knob } from '../shared/Knob';
 import type { PanelHandle } from '../../types';
 
-interface Highlight { row: number; col: number; color: string }
+interface Highlight { row: number; col: number; color: string; id: number }
 
 const COLORS: [string, string][] = [
   ['Yellow', 'yellow'], ['Red', 'red'], ['Green', 'green'], ['Blue', 'blue'],
@@ -39,9 +39,10 @@ export function TablePanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
   const [mhTarget, setMhTarget]   = useState('row');
   const [mhIndex, setMhIndex]     = useState(1);
   const [mhColor, setMhColor]     = useState('yellow');
+  const nextId = useRef(0);
 
   function addHighlight() {
-    setHighlights(prev => [...prev, { row: 1, col: 1, color: 'yellow' }]);
+    setHighlights(prev => [...prev, { row: 1, col: 1, color: 'yellow', id: nextId.current++ }]);
   }
   function updateHighlight(i: number, field: keyof Highlight, val: string | number) {
     setHighlights(prev => prev.map((h, idx) => idx === i ? { ...h, [field]: val } : h));
@@ -93,7 +94,7 @@ export function TablePanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
           <div className="sec-sep" />
           <div className="sec-hdr">Highlights (1-based; counts label row/col)</div>
           {highlights.map((h, i) => (
-            <div key={i} style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 4 }}>
+            <div key={h.id} style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 4 }}>
               <input className="knob__num" style={{ width: 40, textAlign: 'center' }} type="number" value={h.row}
                 onChange={e => updateHighlight(i, 'row', Number(e.target.value))} title="row" />
               <input className="knob__num" style={{ width: 40, textAlign: 'center' }} type="number" value={h.col}
