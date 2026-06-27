@@ -1,6 +1,6 @@
 export type Mode = 'trig' | 'complex' | 'linear' | 'code' | 'streamlines' | 'playground'
                  | 'geometry' | 'barchart' | 'surface3d' | 'numberline' | 'funcgraph'
-                 | 'calculus' | 'polar';
+                 | 'calculus' | 'polar' | 'table';
 
 export interface Preset {
   id: string;

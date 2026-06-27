@@ -13,6 +13,7 @@ import { BarChartPanel }     from './panels/BarChartPanel';
 import { Surface3DPanel }    from './panels/Surface3DPanel';
 import { NumberLinePanel }   from './panels/NumberLinePanel';
 import { PolarPlanePanel }  from './panels/PolarPlanePanel';
+import { TablePanel }       from './panels/TablePanel';
 
 const TITLES: Record<Mode, string> = {
   trig:        'Trigonometric Functions',
@@ -28,6 +29,7 @@ const TITLES: Record<Mode, string> = {
   surface3d:   '3D Surface',
   numberline:  'Number Line',
   polar:       'Polar Plane',
+  table:       'Tables & Matrices',
 };
 
 interface SidebarProps {
@@ -53,6 +55,7 @@ export const Sidebar = memo(function Sidebar({ activeMode, panelRef }: SidebarPr
         {activeMode === 'surface3d'   && <Surface3DPanel   ref={panelRef} />}
         {activeMode === 'numberline'  && <NumberLinePanel  ref={panelRef} />}
         {activeMode === 'polar'       && <PolarPlanePanel  ref={panelRef} />}
+        {activeMode === 'table'       && <TablePanel       ref={panelRef} />}
       </div>
     </div>
   );

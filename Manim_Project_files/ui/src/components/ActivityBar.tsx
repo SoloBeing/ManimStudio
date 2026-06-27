@@ -11,6 +11,7 @@ const ITEMS: Array<{ mode: Mode; icon: string; label: string }> = [
   { mode: 'funcgraph',   icon: 'ƒ',   label: 'Graph' },
   { mode: 'calculus',    icon: '∫',   label: 'Calc' },
   { mode: 'polar',       icon: '◎',   label: 'Polar' },
+  { mode: 'table',       icon: '⊞',   label: 'Table' },
   { mode: 'complex',     icon: 'ℂ',   label: 'Cplx' },
   { mode: 'linear',      icon: 'Mx',  label: 'LinAlg' },
   { mode: 'code',        icon: '</>',  label: 'Code' },
