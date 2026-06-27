@@ -192,6 +192,34 @@ def test_fmt_num_integers_have_no_decimal():
     assert _fmt_num(1.5) == "1.5"
 
 
+def test_matrix_add_builds_sum():
+    src = build_table_source(kind="matrix", data="1,2\n3,4",
+                             operation="add", data2="5,6\n7,8")
+    _compiles(src)
+    assert "mA = Matrix([['1', '2'], ['3', '4']]" in src
+    assert "mB = Matrix([['5', '6'], ['7', '8']]" in src
+    assert "mC = Matrix([['6', '8'], ['10', '12']]" in src
+    assert "MathTex('+')" in src and "MathTex('=')" in src
+
+
+def test_matrix_add_shape_mismatch_raises():
+    try:
+        build_table_source(kind="matrix", data="1,2\n3,4",
+                           operation="add", data2="5,6,7")
+    except ValueError:
+        return
+    raise AssertionError("shape mismatch in addition must raise ValueError")
+
+
+def test_matrix_add_missing_second_raises():
+    try:
+        build_table_source(kind="matrix", data="1,2\n3,4",
+                           operation="add", data2="")
+    except ValueError:
+        return
+    raise AssertionError("missing second matrix must raise ValueError")
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 

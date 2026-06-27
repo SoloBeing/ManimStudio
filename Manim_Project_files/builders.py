@@ -2802,6 +2802,32 @@ def _emit_scalar_mul(L, grid, lb, rb, scalar, intro, rt):
     L.append("        self.play(FadeOut(_k), Transform(m, res), run_time=1.2)")
 
 
+def _emit_matrix_add(L, grid, data2, lb, rb, intro, rt):
+    A = _grid_to_floats(grid, "Matrix addition (A)")
+    gridB = _parse_grid(data2)
+    if not gridB:
+        raise ValueError("Matrix addition needs a second matrix (B).")
+    B = _grid_to_floats(gridB, "Matrix addition (B)")
+    if len(A) != len(B) or any(len(ra) != len(rb_) for ra, rb_ in zip(A, B)):
+        raise ValueError(
+            "Matrix addition requires both matrices to have the same shape.")
+    aS = [[_fmt_num(v) for v in row] for row in A]
+    bS = [[_fmt_num(v) for v in row] for row in B]
+    C  = [[_fmt_num(a + b) for a, b in zip(ra, rb_)] for ra, rb_ in zip(A, B)]
+    L.append(f"        mA = Matrix({_matrix_literal(aS)}, "
+             f"left_bracket={lb!r}, right_bracket={rb!r})")
+    L.append(f"        mB = Matrix({_matrix_literal(bS)}, "
+             f"left_bracket={lb!r}, right_bracket={rb!r})")
+    L.append("        _plus = MathTex('+')")
+    L.append("        _eq = MathTex('=')")
+    L.append(f"        mC = Matrix({_matrix_literal(C)}, "
+             f"left_bracket={lb!r}, right_bracket={rb!r})")
+    L.append("        _row = VGroup(mA, _plus, mB, _eq, mC).arrange(RIGHT, buff=0.3)")
+    L.append("        _row.scale(min(1.0, 12.0 / _row.width))")
+    L.append(f"        self.play({intro}(mA), {intro}(mB), FadeIn(_plus), run_time={rt})")
+    L.append("        self.play(Write(_eq), FadeIn(mC), run_time=1.0)")
+
+
 def _emit_matrix_static(L, grid, lb, rb, mhighlight, intro, rt):
     L.append(f"        m = Matrix({_matrix_literal(grid)}, "
              f"left_bracket={lb!r}, right_bracket={rb!r})")
