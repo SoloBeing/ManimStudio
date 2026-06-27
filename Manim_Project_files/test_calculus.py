@@ -181,6 +181,19 @@ def test_curve_drawn_with_segmented_plot():
     _compiles(src)
 
 
+def test_tangent_x0_clamped_to_integration_interval():
+    # C4: x0 must clamp into [a, b] (where graph_f is actually drawn), not just the
+    # axis range — otherwise the tangent/secant attaches over empty space off the graph.
+    below = build_calculus_source("x^2", a=2, b=5, x0=1.0,
+                                  tangent={"on": True, "animate_secant": False})
+    assert "_x0 = 2.0000" in below   # 1.0 (inside axis range) clamped UP to a=2
+    above = build_calculus_source("x^2", a=-1, b=2, x0=9.0,
+                                  tangent={"on": True, "animate_secant": False})
+    assert "_x0 = 2.0000" in above   # 9.0 clamped DOWN to b=2
+    _compiles(below)
+    _compiles(above)
+
+
 def test_overlays_gated_on_validity_flag():
     # C2: a runtime _ok flag (finite + in-band over [a, b]) gates the DISPLAY of the
     # area-style overlays, so a divergent f (1/x has a pole at 0) suppresses the

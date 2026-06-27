@@ -2065,7 +2065,7 @@ def build_calculus_source(
     ylo, yhi = float(y_min), float(y_max)
     if ylo >= yhi:
         ylo, yhi = -4.0, 4.0
-    x0 = max(xlo, min(xhi, float(x0)))
+    x0 = max(a, min(b, float(x0)))   # clamp onto [a, b] where graph_f is drawn (audit C4)
     xs = max(0.01, float(x_step) if x_step else (xhi - xlo) / 10.0)
     ys = max(0.01, float(y_step) if y_step else (yhi - ylo) / 8.0)
 
