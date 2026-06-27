@@ -2828,6 +2828,19 @@ def _emit_matrix_add(L, grid, data2, lb, rb, intro, rt):
     L.append("        self.play(Write(_eq), FadeIn(mC), run_time=1.0)")
 
 
+def _emit_transpose(L, grid, lb, rb, intro, rt):
+    T = [list(col) for col in zip(*grid)]   # grid is rectangular (padded)
+    L.append(f"        m = Matrix({_matrix_literal(grid)}, "
+             f"left_bracket={lb!r}, right_bracket={rb!r})")
+    L.append(f"        self.play({intro}(m), run_time={rt})")
+    L.append("        self.wait(0.4)")
+    L.append(f"        mT = Matrix({_matrix_literal(T)}, "
+             f"left_bracket={lb!r}, right_bracket={rb!r})")
+    L.append("        mT.move_to(m)")
+    L.append("        _lbl = MathTex('A^T').next_to(mT, UP, buff=0.3)")
+    L.append("        self.play(Transform(m, mT), FadeIn(_lbl), run_time=1.2)")
+
+
 def _emit_matrix_static(L, grid, lb, rb, mhighlight, intro, rt):
     L.append(f"        m = Matrix({_matrix_literal(grid)}, "
              f"left_bracket={lb!r}, right_bracket={rb!r})")

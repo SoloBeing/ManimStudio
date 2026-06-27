@@ -220,6 +220,22 @@ def test_matrix_add_missing_second_raises():
     raise AssertionError("missing second matrix must raise ValueError")
 
 
+def test_transpose_swaps_rows_and_cols():
+    src = build_table_source(kind="matrix", data="1,2,3\n4,5,6", operation="transpose")
+    _compiles(src)
+    assert "m = Matrix([['1', '2', '3'], ['4', '5', '6']]" in src
+    assert "mT = Matrix([['1', '4'], ['2', '5'], ['3', '6']]" in src
+    assert "Transform(m, mT" in src
+    assert "MathTex('A^T')" in src
+
+
+def test_transpose_allows_non_numeric():
+    # transpose is a pure layout swap; symbolic entries are fine (no ValueError).
+    src = build_table_source(kind="matrix", data="a,b\nc,d", operation="transpose")
+    _compiles(src)
+    assert "mT = Matrix([['a', 'c'], ['b', 'd']]" in src
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 
