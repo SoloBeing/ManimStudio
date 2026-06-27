@@ -3,7 +3,7 @@
 Pure Python: imports builders directly (no Qt, no manim render needed).
 Run:  uv run python test_parametric.py
 """
-import sys, os
+import re, sys, os
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
@@ -15,6 +15,15 @@ FAIL = "\033[91mFAIL\033[0m"
 
 def _compiles(src):
     compile(src, "<parametric>", "exec")
+
+
+def _assert_no_undefined_labels(src):
+    """Every next_to(lblN, ...) target must have a matching `lblN = ...` def,
+    else the generated scene raises NameError at render time (audit C1)."""
+    defined = set(re.findall(r"^\s*(lbl\d+)\s*=", src, re.M))
+    referenced = set(re.findall(r"next_to\((lbl\d+)", src))
+    missing = referenced - defined
+    assert not missing, f"references undefined label vars: {sorted(missing)}"
 
 
 def _param(**kw):
@@ -39,6 +48,16 @@ def test_default_circle_fallback():
     src2 = _param(param_curves=[{"x_expr": "   ", "y_expr": ""}])
     assert "return cos(t)" in src2 and "return sin(t)" in src2
     _compiles(src2)
+
+
+def test_label_gap_does_not_reference_undefined_var():
+    # C1: curve 0 unlabeled, curve 1 labeled -> must NOT next_to(lbl0) (undefined).
+    src = _param(param_curves=[
+        {"x_expr": "cos(t)", "y_expr": "sin(t)", "color": "blue"},                  # no label
+        {"x_expr": "2*cos(t)", "y_expr": "2*sin(t)", "color": "red", "label": "g"}, # labeled
+    ])
+    _compiles(src)
+    _assert_no_undefined_labels(src)
 
 
 def test_friendly_syntax_and_namespace():

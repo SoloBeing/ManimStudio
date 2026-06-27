@@ -3,7 +3,7 @@
 Pure Python: imports builders directly (no Qt, no manim render needed).
 Run:  uv run python test_funcgraph.py
 """
-import sys, os
+import re, sys, os
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
@@ -15,6 +15,15 @@ FAIL = "\033[91mFAIL\033[0m"
 
 def _compiles(src):
     compile(src, "<funcgraph>", "exec")
+
+
+def _assert_no_undefined_labels(src):
+    """Every next_to(lblN, ...) target must have a matching `lblN = ...` def,
+    else the generated scene raises NameError at render time (audit C1)."""
+    defined = set(re.findall(r"^\s*(lbl\d+)\s*=", src, re.M))
+    referenced = set(re.findall(r"next_to\((lbl\d+)", src))
+    missing = referenced - defined
+    assert not missing, f"references undefined label vars: {sorted(missing)}"
 
 
 def test_single_curve_compiles():
@@ -73,6 +82,17 @@ def test_grid_and_zoom():
     assert "NumberPlane(" in src
     assert "config.frame_width" in src
     _compiles(src)
+
+
+def test_label_gap_does_not_reference_undefined_var():
+    # C1: curve 0 unlabeled, curve 1 labeled -> stacking must NOT next_to(lbl0)
+    # because lbl0 is never created (label-emit is gated on `if label:`).
+    src = build_funcgraph_source([
+        {"expr": "x^2", "color": "blue"},                  # no label
+        {"expr": "sin(x)", "color": "red", "label": "g"},  # labeled
+    ])
+    _compiles(src)
+    _assert_no_undefined_labels(src)
 
 
 def test_blocked_expr_rejected():

@@ -3,7 +3,7 @@
 Pure Python: imports builders directly (no Qt, no manim render needed).
 Run:  uv run python test_polar.py
 """
-import sys, os
+import re, sys, os
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
@@ -15,6 +15,15 @@ FAIL = "\033[91mFAIL\033[0m"
 
 def _compiles(src):
     compile(src, "<polar>", "exec")
+
+
+def _assert_no_undefined_labels(src):
+    """Every next_to(lblN, ...) target must have a matching `lblN = ...` def,
+    else the generated scene raises NameError at render time (audit C1)."""
+    defined = set(re.findall(r"^\s*(lbl\d+)\s*=", src, re.M))
+    referenced = set(re.findall(r"next_to\((lbl\d+)", src))
+    missing = referenced - defined
+    assert not missing, f"references undefined label vars: {sorted(missing)}"
 
 
 def test_scaffold_compiles_and_builds_grid():
@@ -34,6 +43,16 @@ def test_default_cardioid_fallback():
     src2 = build_polar_source([{"expr": "   "}])
     assert "return 1 + cos(theta)" in src2
     _compiles(src2)
+
+
+def test_label_gap_does_not_reference_undefined_var():
+    # C1: curve 0 unlabeled, curve 1 labeled -> must NOT next_to(lbl0) (undefined).
+    src = build_polar_source([
+        {"expr": "cos(3*theta)", "color": "blue"},                 # no label
+        {"expr": "2*theta", "color": "red", "label": "spiral"},    # labeled
+    ], show_curve_labels=True)
+    _compiles(src)
+    _assert_no_undefined_labels(src)
 
 
 def test_friendly_syntax_and_namespace():

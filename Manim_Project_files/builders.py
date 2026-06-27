@@ -1627,6 +1627,28 @@ def _emit_cartesian_axes(L, xlo, xhi, xs, ylo, yhi, ys, show_grid, use_latex=Fal
     L.append("        self.play(Create(axes), run_time=0.8)")
 
 
+def _emit_curve_label(L, i, want_label, label, color, play, rt, prev_lbl):
+    """Emit a curve's play() call, with an optional stacked corner label.
+
+    The first *labeled* curve goes to the upper-right corner; each later label
+    stacks under the previous EMITTED label (``prev_lbl``) — never ``lbl{i-1}``,
+    which may not exist when an earlier curve was unlabeled (that produced a
+    NameError at render time; audit C1). Returns the var name to use as the next
+    curve's stacking anchor (unchanged when this curve has no label).
+    """
+    if want_label and label:
+        lv = f"lbl{i}"
+        L.append(f"        {lv} = Text({label!r}, font_size=22, color={color})")
+        if prev_lbl is None:
+            L.append(f"        {lv}.to_corner(UR, buff=0.4)")
+        else:
+            L.append(f"        {lv}.next_to({prev_lbl}, DOWN, buff=0.15, aligned_edge=LEFT)")
+        L.append(f"        self.play({play}, FadeIn({lv}), run_time={rt:.1f})")
+        return lv
+    L.append(f"        self.play({play}, run_time={rt:.1f})")
+    return prev_lbl
+
+
 def build_funcgraph_source(
     curves=None,
     x_min=-5.0, x_max=5.0, y_min=-4.0, y_max=4.0,
@@ -1743,6 +1765,7 @@ def build_funcgraph_source(
 
     wrap_tmpl, rt = _FG_ANIMS.get(str(anim or "Create"), _FG_ANIMS["Create"])
 
+    prev_lbl = None  # stacking anchor: the previous emitted label (audit C1)
     for i, (body, color, label, style, width) in enumerate(clean):
         g, fn = f"g{i}", f"_f{i}"
         dashed = "True" if style == "dashed" else "False"
@@ -1753,16 +1776,7 @@ def build_funcgraph_source(
             f"{color}, {width:.2f}, {ymin_break:.4f}, {ymax_break:.4f}, dashed={dashed})",
         ]
         play = wrap_tmpl.format(g=g)
-        if label:
-            lv = f"lbl{i}"
-            L.append(f"        {lv} = Text({label!r}, font_size=22, color={color})")
-            if i == 0:
-                L.append(f"        {lv}.to_corner(UR, buff=0.4)")
-            else:
-                L.append(f"        {lv}.next_to(lbl{i - 1}, DOWN, buff=0.15, aligned_edge=LEFT)")
-            L.append(f"        self.play({play}, FadeIn({lv}), run_time={rt:.1f})")
-        else:
-            L.append(f"        self.play({play}, run_time={rt:.1f})")
+        prev_lbl = _emit_curve_label(L, i, True, label, color, play, rt, prev_lbl)
 
     L.append("        self.wait(1.5)")
     return _join(L)
@@ -1907,6 +1921,7 @@ def _build_parametric_source(
 
     # curves (1..3)
     wrap_tmpl, rt = _FG_ANIMS.get(str(anim or "Create"), _FG_ANIMS["Create"])
+    prev_lbl = None  # stacking anchor: the previous emitted label (audit C1)
     for i, (xbody, ybody, color, label) in enumerate(clean):
         g = f"g{i}"
         L += [
@@ -1917,16 +1932,7 @@ def _build_parametric_source(
             f"        {g} = _param_plot(axes, _p{i}_x, _p{i}_y, {t0:.4f}, {t1:.4f}, {dt:.4f}, {color}, 2.5)",
         ]
         play = wrap_tmpl.format(g=g)
-        if label:
-            lv = f"lbl{i}"
-            L.append(f"        {lv} = Text({label!r}, font_size=22, color={color})")
-            if i == 0:
-                L.append(f"        {lv}.to_corner(UR, buff=0.4)")
-            else:
-                L.append(f"        {lv}.next_to(lbl{i - 1}, DOWN, buff=0.15, aligned_edge=LEFT)")
-            L.append(f"        self.play({play}, FadeIn({lv}), run_time={rt:.1f})")
-        else:
-            L.append(f"        self.play({play}, run_time={rt:.1f})")
+        prev_lbl = _emit_curve_label(L, i, True, label, color, play, rt, prev_lbl)
 
     # extras (Tasks 3-4 add their emitters here)
     _emit_param_tracer_velocity(L, TR, VE, t0, t1)
@@ -2478,6 +2484,7 @@ def build_polar_source(
 
     # --- curves (1..3) ---------------------------------------------------
     wrap_tmpl, rt = _FG_ANIMS.get(str(anim or "Create"), _FG_ANIMS["Create"])
+    prev_lbl = None  # stacking anchor: the previous emitted label (audit C1)
     for i, (body, color, label) in enumerate(clean):
         g, fn = f"g{i}", f"_r{i}"
         L += [
@@ -2486,16 +2493,7 @@ def build_polar_source(
             f"        {g} = _polar_plot(plane, {fn}, {t0:.4f}, {t1:.4f}, {dt:.4f}, {color}, 3.0)",
         ]
         play = wrap_tmpl.format(g=g)
-        if show_curve_labels and label:
-            lv = f"lbl{i}"
-            L.append(f"        {lv} = Text({label!r}, font_size=22, color={color})")
-            if i == 0:
-                L.append(f"        {lv}.to_corner(UR, buff=0.4)")
-            else:
-                L.append(f"        {lv}.next_to(lbl{i - 1}, DOWN, buff=0.15, aligned_edge=LEFT)")
-            L.append(f"        self.play({play}, FadeIn({lv}), run_time={rt:.1f})")
-        else:
-            L.append(f"        self.play({play}, run_time={rt:.1f})")
+        prev_lbl = _emit_curve_label(L, i, show_curve_labels, label, color, play, rt, prev_lbl)
 
     # --- extras (Tasks 2-4) ----------------------------------------------
     _emit_polar_points(L, P)          # Task 2
