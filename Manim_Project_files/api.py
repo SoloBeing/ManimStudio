@@ -114,6 +114,7 @@ _BUILDERS = {
     "funcgraph":   builders.build_funcgraph_source,
     "calculus":    builders.build_calculus_source,
     "polar":       builders.build_polar_source,
+    "table":       builders.build_table_source,
 }
 
 

@@ -2623,3 +2623,84 @@ def _emit_polar_radial(L, RL, rmax):
         f"plane.polar_to_point({rmax:.4f}, {rad:.5f}), color={color}, stroke_width=4)",
         "        self.play(Create(_radial), run_time=0.6)",
     ]
+
+
+# ====================================================================
+#  Tables & Matrices  (mode "table")  — Table/Matrix toggle via `kind`
+# ====================================================================
+
+_TABLE_ANIMS = {
+    "Create": ("Create", 1.5),
+    "Write":  ("Write",  2.0),
+    "FadeIn": ("FadeIn", 1.0),
+}
+_BRACKETS = {"[]": ("[", "]"), "()": ("(", ")"), "{}": (r"\{", r"\}")}
+_TABLE_SAMPLE = [["1", "2"], ["3", "4"]]
+
+
+def _parse_grid(s, max_r=8, max_c=8):
+    """CSV-ish text -> padded list[list[str]], capped max_r x max_c.
+
+    Rows split on newlines; cells split on '|' if the row contains one, else
+    on ','. Whitespace stripped. Ragged rows padded with '' to the widest
+    (capped) column. Empty input -> []."""
+    rows = []
+    for line in str(s or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        sep = "|" if "|" in line else ","
+        cells = [c.strip() for c in line.split(sep)]
+        rows.append(cells[:max_c])
+        if len(rows) >= max_r:
+            break
+    if not rows:
+        return []
+    width = min(max_c, max(len(r) for r in rows))
+    return [r[:width] + [""] * (width - len(r)) for r in rows]
+
+
+def _matrix_literal(grid):
+    """2D string grid -> Python list literal source, e.g. [['1', '2'], ...]."""
+    return "[" + ", ".join(
+        "[" + ", ".join(repr(c) for c in row) + "]" for row in grid
+    ) + "]"
+
+
+def build_table_source(
+    kind="table",
+    data="", title="", anim="Create", cam_zoom=1.0,
+    # ---- table-only ----
+    row_labels="", col_labels="", use_latex=False, include_outer_lines=True,
+    highlights=None,
+    # ---- matrix-only ----
+    bracket="[]", operation="none", scalar=2.0, data2="", mhighlight=None,
+):
+    grid = _parse_grid(data) or [row[:] for row in _TABLE_SAMPLE]
+    if str(kind) == "matrix":
+        return _build_matrix_kind(grid, bracket, operation, scalar, data2,
+                                  mhighlight, title, anim, cam_zoom)
+    return _build_table_kind(grid, row_labels, col_labels, use_latex,
+                             include_outer_lines, highlights, title, anim, cam_zoom)
+
+
+def _build_table_kind(grid, row_labels, col_labels, use_latex,
+                      include_outer_lines, highlights, title, anim, cam_zoom):
+    cls = "MathTable" if use_latex else "Table"
+    L = ["from manim import *", "", "", "class ManimScene(Scene):",
+         "    def construct(self):"]
+    L.append(f"        t = {cls}({_matrix_literal(grid)})")
+    if str(title or "").strip():
+        ttl = str(title).strip()[:48]
+        L.append(f"        _title = Text({ttl!r}, font_size=32, color=WHITE)")
+        L.append("        grp = VGroup(_title, t).arrange(DOWN, buff=0.4)")
+    else:
+        L.append("        grp = VGroup(t)")
+    L.append("        grp.scale(min(1.0, 6.5 / grp.width, 7.0 / grp.height))")
+    zoom_f = float(cam_zoom or 1.0)
+    if abs(zoom_f - 1.0) > 0.02:
+        L.append(f"        grp.scale({zoom_f:.3f})")
+    intro, rt = _TABLE_ANIMS.get(str(anim), _TABLE_ANIMS["Create"])
+    L.append(f"        self.play({intro}(grp), run_time={rt})")
+    L.append("        self.wait(1.5)")
+    return _join(L)
