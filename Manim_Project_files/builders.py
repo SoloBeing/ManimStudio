@@ -2731,3 +2731,60 @@ def _build_table_kind(grid, row_labels, col_labels, use_latex,
     L.append(f"        self.play({intro}(grp), run_time={rt})")
     L.append("        self.wait(1.5)")
     return _join(L)
+
+
+def _build_matrix_kind(grid, bracket, operation, scalar, data2, mhighlight,
+                       title, anim, cam_zoom):
+    lb, rb = _BRACKETS.get(str(bracket), _BRACKETS["[]"])
+    op = str(operation or "none")
+    zoom_f = float(cam_zoom or 1.0)
+    L = ["from manim import *", "import numpy as np", ""]
+    if abs(zoom_f - 1.0) > 0.02:
+        L += [f"config.frame_width  = {14.222 / zoom_f:.3f}",
+              f"config.frame_height = {8.0 / zoom_f:.3f}", ""]
+    L += ["", "class ManimScene(Scene):", "    def construct(self):"]
+    if str(title or "").strip():
+        ttl = str(title).strip()[:48]
+        L.append(f"        _title = Text({ttl!r}, font_size=32, color=WHITE).to_edge(UP, buff=0.4)")
+        L.append("        self.play(FadeIn(_title), run_time=0.4)")
+    intro, rt = _TABLE_ANIMS.get(str(anim), _TABLE_ANIMS["Create"])
+
+    if op == "scalar":
+        _emit_scalar_mul(L, grid, lb, rb, scalar, intro, rt)
+    elif op == "add":
+        _emit_matrix_add(L, grid, data2, lb, rb, intro, rt)
+    elif op == "transpose":
+        _emit_transpose(L, grid, lb, rb, intro, rt)
+    elif op == "determinant":
+        _emit_determinant(L, grid, lb, rb, intro, rt)
+    else:
+        _emit_matrix_static(L, grid, lb, rb, mhighlight, intro, rt)
+
+    L.append("        self.wait(1.5)")
+    return _join(L)
+
+
+def _emit_matrix_static(L, grid, lb, rb, mhighlight, intro, rt):
+    L.append(f"        m = Matrix({_matrix_literal(grid)}, "
+             f"left_bracket={lb!r}, right_bracket={rb!r})")
+    L.append(f"        self.play({intro}(m), run_time={rt})")
+    H = mhighlight or {}
+    if not H.get("on"):
+        return
+    target = str(H.get("target", "row"))
+    try:
+        idx = int(H.get("index", 1))
+    except (TypeError, ValueError):
+        return
+    color = _text_color(H.get("color", "yellow"))
+    n_rows, n_cols = len(grid), len(grid[0])
+    if target == "row" and 1 <= idx <= n_rows:
+        sel = f"m.get_rows()[{idx - 1}]"
+    elif target == "col" and 1 <= idx <= n_cols:
+        sel = f"m.get_columns()[{idx - 1}]"
+    elif target == "entry" and 1 <= idx <= n_rows * n_cols:
+        sel = f"m.get_entries()[{idx - 1}]"
+    else:
+        return
+    L.append(f"        _sel = {sel}")
+    L.append(f"        self.play(Indicate(_sel, color={color}), run_time=0.8)")

@@ -118,6 +118,54 @@ def test_title_grouped_above_table():
     assert "VGroup(_title, t).arrange(DOWN" in src
 
 
+def test_matrix_static_emits_matrix_with_brackets():
+    src = build_table_source(kind="matrix", data="1,2\n3,4", bracket="()")
+    _compiles(src)
+    assert "Matrix([['1', '2'], ['3', '4']]" in src
+    assert "left_bracket='('" in src and "right_bracket=')'" in src
+
+
+def test_matrix_brace_brackets():
+    src = build_table_source(kind="matrix", data="1\n2", bracket="{}")
+    _compiles(src)
+    assert r"left_bracket='\\{'" in src and r"right_bracket='\\}'" in src
+
+
+def test_matrix_needs_latex():
+    from api import _source_needs_latex
+    src = build_table_source(kind="matrix", data="1,2\n3,4")
+    assert _source_needs_latex(src), "matrix must trigger the LaTeX preflight"
+
+
+def test_matrix_row_highlight_indicates():
+    src = build_table_source(kind="matrix", data="1,2\n3,4",
+                             mhighlight={"on": True, "target": "row", "index": 1, "color": "yellow"})
+    _compiles(src)
+    assert "m.get_rows()[0]" in src
+    assert "Indicate(" in src
+
+
+def test_matrix_col_highlight():
+    src = build_table_source(kind="matrix", data="1,2\n3,4",
+                             mhighlight={"on": True, "target": "col", "index": 2, "color": "red"})
+    _compiles(src)
+    assert "m.get_columns()[1]" in src
+
+
+def test_matrix_highlight_off_emits_nothing():
+    src = build_table_source(kind="matrix", data="1,2\n3,4",
+                             mhighlight={"on": False, "target": "row", "index": 1})
+    _compiles(src)
+    assert "Indicate(" not in src
+
+
+def test_matrix_highlight_out_of_range_skipped():
+    src = build_table_source(kind="matrix", data="1,2\n3,4",
+                             mhighlight={"on": True, "target": "row", "index": 9})
+    _compiles(src)
+    assert "Indicate(" not in src
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 
