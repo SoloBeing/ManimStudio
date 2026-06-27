@@ -166,6 +166,32 @@ def test_matrix_highlight_out_of_range_skipped():
     assert "Indicate(" not in src
 
 
+def test_scalar_multiply_builds_result_and_transform():
+    src = build_table_source(kind="matrix", data="1,2\n3,4",
+                             operation="scalar", scalar=3)
+    _compiles(src)
+    # source matrix and the x3 result both present
+    assert "Matrix([['1', '2'], ['3', '4']]" in src
+    assert "Matrix([['3', '6'], ['9', '12']]" in src
+    assert "Transform(m, res" in src
+    assert r"3 \cdot" in src
+
+
+def test_scalar_multiply_non_numeric_raises():
+    try:
+        build_table_source(kind="matrix", data="a,b\nc,d", operation="scalar", scalar=2)
+    except ValueError:
+        return
+    raise AssertionError("non-numeric scalar multiply must raise ValueError")
+
+
+def test_fmt_num_integers_have_no_decimal():
+    from builders import _fmt_num
+    assert _fmt_num(6.0) == "6"
+    assert _fmt_num(-2.0) == "-2"
+    assert _fmt_num(1.5) == "1.5"
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 

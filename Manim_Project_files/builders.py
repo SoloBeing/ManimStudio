@@ -2764,6 +2764,44 @@ def _build_matrix_kind(grid, bracket, operation, scalar, data2, mhighlight,
     return _join(L)
 
 
+def _fmt_num(v):
+    """Float -> compact string: integral values lose the decimal point."""
+    v = float(v)
+    return str(int(v)) if v == int(v) else f"{v:.4g}"
+
+
+def _grid_to_floats(grid, label):
+    """2D string grid -> list[list[float]]; raise ValueError on any non-number."""
+    out = []
+    for row in grid:
+        frow = []
+        for c in row:
+            try:
+                frow.append(float(c))
+            except (TypeError, ValueError):
+                raise ValueError(
+                    f"{label} requires numeric entries; got {c!r}.")
+        out.append(frow)
+    return out
+
+
+def _emit_scalar_mul(L, grid, lb, rb, scalar, intro, rt):
+    nums = _grid_to_floats(grid, "Scalar multiply")
+    k = float(scalar)
+    src_grid = [[_fmt_num(v) for v in row] for row in nums]
+    res_grid = [[_fmt_num(k * v) for v in row] for row in nums]
+    L.append(f"        m = Matrix({_matrix_literal(src_grid)}, "
+             f"left_bracket={lb!r}, right_bracket={rb!r})")
+    L.append(f"        _k = MathTex(r'{_fmt_num(k)} \\cdot')")
+    L.append("        _row = VGroup(_k, m).arrange(RIGHT, buff=0.25)")
+    L.append(f"        self.play({intro}(_row), run_time={rt})")
+    L.append("        self.wait(0.5)")
+    L.append(f"        res = Matrix({_matrix_literal(res_grid)}, "
+             f"left_bracket={lb!r}, right_bracket={rb!r})")
+    L.append("        res.move_to(m)")
+    L.append("        self.play(FadeOut(_k), Transform(m, res), run_time=1.2)")
+
+
 def _emit_matrix_static(L, grid, lb, rb, mhighlight, intro, rt):
     L.append(f"        m = Matrix({_matrix_literal(grid)}, "
              f"left_bracket={lb!r}, right_bracket={rb!r})")
