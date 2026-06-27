@@ -44,7 +44,7 @@ export function TablePanel({ ref }: { ref?: React.Ref<PanelHandle> }) {
   function addHighlight() {
     setHighlights(prev => [...prev, { row: 1, col: 1, color: 'yellow', id: nextId.current++ }]);
   }
-  function updateHighlight(i: number, field: keyof Highlight, val: string | number) {
+  function updateHighlight(i: number, field: keyof Omit<Highlight, 'id'>, val: string | number) {
     setHighlights(prev => prev.map((h, idx) => idx === i ? { ...h, [field]: val } : h));
   }
   function removeHighlight(i: number) {

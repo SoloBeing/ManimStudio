@@ -2840,13 +2840,13 @@ def _emit_transpose(L, grid, lb, rb, intro, rt):
     T = [list(col) for col in zip(*grid)]   # grid is rectangular (padded)
     L.append(f"        m = Matrix({_matrix_literal(grid)}, "
              f"left_bracket={lb!r}, right_bracket={rb!r})")
-    L.append("        _sf = min(1.0, 11.5 / m.width, 5.5 / m.height)")
-    L.append("        m.scale(_sf)")
-    L.append(f"        self.play({intro}(m), run_time={rt})")
-    L.append("        self.wait(0.4)")
     L.append(f"        mT = Matrix({_matrix_literal(T)}, "
              f"left_bracket={lb!r}, right_bracket={rb!r})")
+    L.append("        _sf = min(1.0, 11.5 / m.width, 5.5 / m.height, 11.5 / mT.width, 5.5 / mT.height)")
+    L.append("        m.scale(_sf)")
     L.append("        mT.scale(_sf)")
+    L.append(f"        self.play({intro}(m), run_time={rt})")
+    L.append("        self.wait(0.4)")
     L.append("        mT.move_to(m)")
     L.append("        _lbl = MathTex('A^T').next_to(mT, UP, buff=0.3)")
     L.append("        self.play(Transform(m, mT), FadeIn(_lbl), run_time=1.2)")

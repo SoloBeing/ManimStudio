@@ -318,6 +318,19 @@ def test_table_scale_guarded_against_zero():
     assert "max(grp.width, 1e-6)" in src and "max(grp.height, 1e-6)" in src
 
 
+def test_transpose_target_scaled_to_match():
+    src = build_table_source(kind="matrix", data="1,2,3\n4,5,6", operation="transpose")
+    _compiles(src)
+    assert "mT.scale(_sf)" in src               # transpose target scaled
+    assert "/ mT.width" in src and "/ mT.height" in src   # joint fit includes mT shape
+
+
+def test_nonsquare_transpose_compiles():
+    src = build_table_source(kind="matrix", data="1,2,3,4,5,6,7,8", operation="transpose")  # 1x8 -> 8x1
+    _compiles(src)
+    assert "mT.scale(_sf)" in src
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 
