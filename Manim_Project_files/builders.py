@@ -2841,6 +2841,30 @@ def _emit_transpose(L, grid, lb, rb, intro, rt):
     L.append("        self.play(Transform(m, mT), FadeIn(_lbl), run_time=1.2)")
 
 
+def _det(m):
+    """Determinant of a 2x2 or 3x3 numeric matrix."""
+    if len(m) == 2:
+        return m[0][0] * m[1][1] - m[0][1] * m[1][0]
+    a, b, c = m[0]
+    d, e, f = m[1]
+    g, h, i = m[2]
+    return a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+
+
+def _emit_determinant(L, grid, lb, rb, intro, rt):
+    n = len(grid)
+    if n not in (2, 3) or any(len(r) != n for r in grid):
+        raise ValueError("Determinant requires a square 2x2 or 3x3 matrix.")
+    M = _grid_to_floats(grid, "Determinant")
+    dstr = _fmt_num(_det(M))
+    L.append(f"        m = Matrix({_matrix_literal(grid)}, "
+             f"left_bracket={lb!r}, right_bracket={rb!r})")
+    L.append(f"        self.play({intro}(m), run_time={rt})")
+    L.append(f"        _det = MathTex(r'\\det(A) = {dstr}', font_size=44)")
+    L.append("        _det.next_to(m, DOWN, buff=0.5)")
+    L.append("        self.play(Write(_det), run_time=1.0)")
+
+
 def _emit_matrix_static(L, grid, lb, rb, mhighlight, intro, rt):
     L.append(f"        m = Matrix({_matrix_literal(grid)}, "
              f"left_bracket={lb!r}, right_bracket={rb!r})")

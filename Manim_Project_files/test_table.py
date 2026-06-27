@@ -236,6 +236,50 @@ def test_transpose_allows_non_numeric():
     assert "mT = Matrix([['a', 'c'], ['b', 'd']]" in src
 
 
+def test_determinant_2x2_value():
+    src = build_table_source(kind="matrix", data="1,2\n3,4", operation="determinant")
+    _compiles(src)
+    assert r"\det(A) = -2" in src          # 1*4 - 2*3 = -2
+
+
+def test_determinant_3x3_value():
+    src = build_table_source(kind="matrix", data="1,2,3\n4,5,6\n7,8,10",
+                             operation="determinant")
+    _compiles(src)
+    assert r"\det(A) = -3" in src          # rule-of-Sarrus = -3
+
+
+def test_determinant_non_square_raises():
+    try:
+        build_table_source(kind="matrix", data="1,2,3\n4,5,6", operation="determinant")
+    except ValueError:
+        return
+    raise AssertionError("non-square determinant must raise ValueError")
+
+
+def test_determinant_too_big_raises():
+    big = "\n".join("1,2,3,4" for _ in range(4))   # 4x4
+    try:
+        build_table_source(kind="matrix", data=big, operation="determinant")
+    except ValueError:
+        return
+    raise AssertionError("4x4 determinant must raise ValueError")
+
+
+def test_determinant_non_numeric_raises():
+    try:
+        build_table_source(kind="matrix", data="a,b\nc,d", operation="determinant")
+    except ValueError:
+        return
+    raise AssertionError("non-numeric determinant must raise ValueError")
+
+
+def test_det_helper_values():
+    from builders import _det
+    assert _det([[1, 2], [3, 4]]) == -2
+    assert _det([[1, 2, 3], [4, 5, 6], [7, 8, 10]]) == -3
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 
