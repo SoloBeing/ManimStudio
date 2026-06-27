@@ -1886,8 +1886,12 @@ def _build_parametric_source(
         "",
     ]
     L += _PARAM_PLOT_SRC
+    if TR.get("on"):
+        L += _TRACER_DOT_SRC
     if need_vel:
         L += _VEL_ARROW_SRC
+    if TM.get("on"):
+        L += _T_MARKER_SRC
     if abs(zoom_f - 1.0) > 0.02:
         L += [
             f"config.frame_width  = {14.222 / zoom_f:.3f}",
@@ -1971,6 +1975,37 @@ _VEL_ARROW_SRC = [
     "",
 ]
 
+# Guarded tracer dot / t-marker: like _vel_arrow, evaluate the param fns inside a
+# try/finiteness guard so a divergent curve (e.g. 1/t at t=0) yields an empty group
+# instead of crashing always_redraw / FadeIn with ZeroDivisionError or c2p(inf) (audit C3).
+_TRACER_DOT_SRC = [
+    "def _tracer_dot(axes, fx, fy, t, radius, color):",
+    "    try:",
+    "        with np.errstate(all='ignore'):",
+    "            x0 = float(fx(t)); y0 = float(fy(t))",
+    "    except Exception:",
+    "        return VGroup()",
+    "    if not (np.isfinite(x0) and np.isfinite(y0)):",
+    "        return VGroup()",
+    "    return Dot(axes.c2p(x0, y0), radius=radius, color=color)",
+    "",
+]
+
+_T_MARKER_SRC = [
+    "def _t_marker(axes, fx, fy, t, color):",
+    "    try:",
+    "        with np.errstate(all='ignore'):",
+    "            x0 = float(fx(t)); y0 = float(fy(t))",
+    "    except Exception:",
+    "        return VGroup()",
+    "    if not (np.isfinite(x0) and np.isfinite(y0)):",
+    "        return VGroup()",
+    "    p = axes.c2p(x0, y0)",
+    "    return VGroup(Dot(p, radius=0.07, color=color),",
+    "                  Text('t=%g' % t, font_size=16, color=color).next_to(p, UR, buff=0.05))",
+    "",
+]
+
 
 def _emit_param_tracer_velocity(L, TR, VE, t0, t1):
     # Tracer + velocity share ONE ValueTracker/sweep; velocity requires the tracer.
@@ -1979,8 +2014,8 @@ def _emit_param_tracer_velocity(L, TR, VE, t0, t1):
     tcolor = _text_color(TR.get("color", "yellow"))
     L.append(f"        _tval = ValueTracker({t0:.4f})")
     L.append(
-        f"        _dot = always_redraw(lambda: Dot(axes.c2p(_p0_x(_tval.get_value()), "
-        f"_p0_y(_tval.get_value())), radius=0.08, color={tcolor}))"
+        f"        _dot = always_redraw(lambda: _tracer_dot(axes, _p0_x, _p0_y, "
+        f"_tval.get_value(), 0.08, {tcolor}))"
     )
     L.append("        self.add(_dot)")
     if VE.get("on"):
@@ -2023,12 +2058,7 @@ def _emit_param_markers(L, TM):
     L.append("        _tm = VGroup()")
     for tv in vals:
         L.append(
-            f"        _tm.add(Dot(axes.c2p(_p0_x({tv:.5f}), _p0_y({tv:.5f})), "
-            f"radius=0.07, color={color}))"
-        )
-        L.append(
-            f"        _tm.add(Text('t={tv:g}', font_size=16, color={color})"
-            f".next_to(axes.c2p(_p0_x({tv:.5f}), _p0_y({tv:.5f})), UR, buff=0.05))"
+            f"        _tm.add(_t_marker(axes, _p0_x, _p0_y, {tv:.5f}, {color}))"
         )
     L.append("        self.play(FadeIn(_tm), run_time=0.6)")
 

@@ -132,7 +132,8 @@ def test_tracer_emits_valuetracker():
     src = _param(param_curves=[{"x_expr": "cos(t)", "y_expr": "sin(t)"}],
                  tracer={"on": True, "color": "yellow"})
     assert "_tval = ValueTracker(" in src
-    assert "always_redraw(lambda: Dot(axes.c2p(_p0_x(_tval.get_value())" in src
+    # tracer dot rides curve 0 via the guarded helper (audit C3)
+    assert "always_redraw(lambda: _tracer_dot(axes, _p0_x, _p0_y, _tval.get_value()" in src
     assert "_tval.animate.set_value(" in src
     _compiles(src)
 
@@ -164,16 +165,18 @@ def test_velocity_with_tracer_emits_arrow():
 def test_markers_emit_dots():
     src = _param(param_curves=[{"x_expr": "cos(t)", "y_expr": "sin(t)"}],
                  t_markers={"on": True, "values": "0; 1.57", "color": "pink"})
-    assert "Dot(axes.c2p(_p0_x(" in src
-    assert src.count("Dot(axes.c2p(_p0_x(") == 2
-    assert "t=0" in src and "t=1.57" in src
+    # two guarded markers (audit C3), each carrying its t-value; label built at runtime
+    assert src.count("_t_marker(axes, _p0_x, _p0_y,") == 2
+    assert "_t_marker(axes, _p0_x, _p0_y, 0.00000," in src
+    assert "_t_marker(axes, _p0_x, _p0_y, 1.57000," in src
+    assert "Text('t=%g' % t" in src
     _compiles(src)
 
 
 def test_markers_malformed_skipped():
     src = _param(param_curves=[{"x_expr": "cos(t)", "y_expr": "sin(t)"}],
                  t_markers={"on": True, "values": "0; garbage; 3.14"})
-    assert src.count("Dot(axes.c2p(_p0_x(") == 2  # only 0 and 3.14 survive
+    assert src.count("_t_marker(axes, _p0_x, _p0_y,") == 2  # only 0 and 3.14 survive
     _compiles(src)
 
 
@@ -181,6 +184,19 @@ def test_markers_off_emits_nothing():
     src = _param(param_curves=[{"x_expr": "cos(t)", "y_expr": "sin(t)"}],
                  t_markers={"on": False, "values": "0; 1"})
     assert "_tm" not in src
+    _compiles(src)
+
+
+def test_tracer_and_markers_guard_nonfinite_points():
+    # C3: the tracer Dot and the t-markers must route every param-fn point through a
+    # finiteness guard (like _vel_arrow), so a divergent curve (1/t at t=0) gaps
+    # instead of crashing always_redraw / FadeIn with ZeroDivisionError or c2p(inf).
+    src = _param(param_curves=[{"x_expr": "1/t", "y_expr": "t", "color": "blue"}],
+                 tracer={"on": True}, t_markers={"on": True, "values": "0; 1"})
+    assert "def _tracer_dot(" in src   # guarded tracer-dot helper emitted
+    assert "def _t_marker(" in src     # guarded marker helper emitted
+    # no UNGUARDED c2p of the raw param fns in the scene body (only inside helpers)
+    assert "Dot(axes.c2p(_p0_x(" not in src
     _compiles(src)
 
 
