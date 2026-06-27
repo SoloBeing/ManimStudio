@@ -170,6 +170,29 @@ def test_use_latex_toggles_mathtex_and_preflight():
     _compiles(on)
 
 
+def test_curve_drawn_with_segmented_plot():
+    # C2: the visible f-curve is drawn with the segmented _fg_plot sampler (so it
+    # gaps at asymptotes), while the raw axes.plot graph_f is kept as the analysis
+    # object the overlays read from.
+    src = build_calculus_source("x^2", a=-1, b=2)
+    assert "def _fg_plot(" in src           # segmented sampler emitted into the scene
+    assert "_fg_plot(axes, _f" in src       # visible curve drawn via it
+    assert "graph_f = axes.plot(_f" in src  # analysis graph still created (not shown)
+    _compiles(src)
+
+
+def test_overlays_gated_on_validity_flag():
+    # C2: a runtime _ok flag (finite + in-band over [a, b]) gates the DISPLAY of the
+    # area-style overlays, so a divergent f (1/x has a pole at 0) suppresses the
+    # spiking Riemann/derivative overlays instead of rendering garbage.
+    src = build_calculus_source("1/x", a=-1, b=1,
+                                riemann={"on": True, "method": "left"},
+                                derivative={"on": True})
+    assert "_ok = " in src    # validity flag defined in the finiteness pre-check
+    assert "if _ok:" in src   # overlay display gated on it
+    _compiles(src)
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 

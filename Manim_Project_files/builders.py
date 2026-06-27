@@ -1649,6 +1649,40 @@ def _emit_curve_label(L, i, want_label, label, color, play, rt, prev_lbl):
     return prev_lbl
 
 
+# Segmented sampler shared by funcgraph and calculus: it samples f over [x0, x1]
+# and breaks the path at any non-finite or out-of-band point, so asymptotes render
+# as gaps instead of off-screen spikes (a nan would otherwise void axes.plot).
+_FG_PLOT_SRC = [
+    "def _fg_plot(axes, f, x0, x1, dx, color, width, ymin, ymax, dashed=False):",
+    "    # Sample f over [x0, x1]; split into continuous, finite, in-band runs so",
+    "    # asymptotes and out-of-domain gaps render as breaks (a nan voids axes.plot).",
+    "    grp = VGroup()",
+    "    pts = []",
+    "    n = int(round((x1 - x0) / dx)) + 1",
+    "    for k in range(n):",
+    "        xx = x0 + k * dx",
+    "        try:",
+    "            with np.errstate(all='ignore'):",
+    "                yy = float(f(xx))",
+    "        except Exception:",
+    "            yy = float('nan')",
+    "        if (not np.isfinite(yy)) or yy < ymin or yy > ymax:",
+    "            if len(pts) >= 2:",
+    "                m = VMobject(color=color, stroke_width=width)",
+    "                m.set_points_as_corners([axes.c2p(px, py) for px, py in pts])",
+    "                grp.add(DashedVMobject(m, num_dashes=max(8, len(pts) // 12)) if dashed else m)",
+    "            pts = []",
+    "        else:",
+    "            pts.append((xx, yy))",
+    "    if len(pts) >= 2:",
+    "        m = VMobject(color=color, stroke_width=width)",
+    "        m.set_points_as_corners([axes.c2p(px, py) for px, py in pts])",
+    "        grp.add(DashedVMobject(m, num_dashes=max(8, len(pts) // 12)) if dashed else m)",
+    "    return grp",
+    "",
+]
+
+
 def build_funcgraph_source(
     curves=None,
     x_min=-5.0, x_max=5.0, y_min=-4.0, y_max=4.0,
@@ -1704,34 +1738,8 @@ def build_funcgraph_source(
         f"from numpy import ({_FG_NAMESPACE})",
         "",
         "",
-        "def _fg_plot(axes, f, x0, x1, dx, color, width, ymin, ymax, dashed=False):",
-        "    # Sample f over [x0, x1]; split into continuous, finite, in-band runs so",
-        "    # asymptotes and out-of-domain gaps render as breaks (a nan voids axes.plot).",
-        "    grp = VGroup()",
-        "    pts = []",
-        "    n = int(round((x1 - x0) / dx)) + 1",
-        "    for k in range(n):",
-        "        xx = x0 + k * dx",
-        "        try:",
-        "            with np.errstate(all='ignore'):",
-        "                yy = float(f(xx))",
-        "        except Exception:",
-        "            yy = float('nan')",
-        "        if (not np.isfinite(yy)) or yy < ymin or yy > ymax:",
-        "            if len(pts) >= 2:",
-        "                m = VMobject(color=color, stroke_width=width)",
-        "                m.set_points_as_corners([axes.c2p(px, py) for px, py in pts])",
-        "                grp.add(DashedVMobject(m, num_dashes=max(8, len(pts) // 12)) if dashed else m)",
-        "            pts = []",
-        "        else:",
-        "            pts.append((xx, yy))",
-        "    if len(pts) >= 2:",
-        "        m = VMobject(color=color, stroke_width=width)",
-        "        m.set_points_as_corners([axes.c2p(px, py) for px, py in pts])",
-        "        grp.add(DashedVMobject(m, num_dashes=max(8, len(pts) // 12)) if dashed else m)",
-        "    return grp",
-        "",
     ]
+    L += _FG_PLOT_SRC
     zoom_f = float(cam_zoom or 1.0)
     if abs(zoom_f - 1.0) > 0.02:
         L += [
@@ -2072,6 +2080,7 @@ def build_calculus_source(
         "",
         "",
     ]
+    L += _FG_PLOT_SRC   # segmented sampler for the visible curve (audit C2)
     ro = {"i": 0}  # readout chaining counter
 
     def mk(plain, latex):
@@ -2137,32 +2146,46 @@ def build_calculus_source(
     if gbody:
         L += ["        def _g(x):", f"            return {gbody}"]
 
-    # finiteness pre-check over [a, b]
+    # finiteness + in-band pre-check over [a, b]; _ok gates the area-style overlays
+    # so a divergent f (pole inside [a, b]) suppresses spiking Riemann/area/derivative
+    # overlays instead of rendering garbage (audit C2).
+    yband = max(abs(ylo), abs(yhi))
     L += [
-        f"        _xs = np.linspace({a:.4f}, {b:.4f}, 50)",
+        f"        _xs = np.linspace({a:.4f}, {b:.4f}, 200)",
+        f"        _yband = {yband:.4f}",
         "        _bad = 0",
         "        for _xx in _xs:",
         "            try:",
         "                with np.errstate(all='ignore'):",
         "                    _yy = float(_f(_xx))",
-        "                if not np.isfinite(_yy): _bad += 1",
+        "                if (not np.isfinite(_yy)) or abs(_yy) > _yband: _bad += 1",
         "            except Exception:",
         "                _bad += 1",
-        "        if _bad > 10:",
-        "            self.play(FadeIn(Text('⚠ f(x) not finite on [a, b]', "
+        "        _ok = (_bad == 0)",
+        "        if not _ok:",
+        "            self.play(FadeIn(Text('⚠ f(x) not finite / out of view on [a, b]', "
         "font_size=22, color=YELLOW).to_edge(DOWN)))",
     ]
 
-    # plot the analysis graph (the seam: a real axes.plot graph object)
+    # Analysis graph (graph_f) is the real axes.plot object the overlays read from;
+    # it is created but NOT shown. The VISIBLE curve is drawn with the segmented
+    # sampler so it gaps at asymptotes instead of spiking off-screen (audit C2).
     wrap_tmpl, rt = _FG_ANIMS.get(str(anim or "Create"), _FG_ANIMS["Create"])
+    dxc = max(0.002, (b - a) / 400.0)
+    ymargin = max(2.0, 0.5 * (yhi - ylo))
+    ymin_break, ymax_break = ylo - ymargin, yhi + ymargin
     L += [
         f"        graph_f = axes.plot(_f, x_range=[{a:.4f}, {b:.4f}], color=BLUE)",
-        f"        self.play({wrap_tmpl.format(g='graph_f')}, run_time={rt:.1f})",
+        f"        _curve = _fg_plot(axes, _f, {a:.4f}, {b:.4f}, {dxc:.4f}, BLUE, 2.5, "
+        f"{ymin_break:.4f}, {ymax_break:.4f})",
+        f"        self.play({wrap_tmpl.format(g='_curve')}, run_time={rt:.1f})",
     ]
     if gbody:
         L += [
             f"        graph_g = axes.plot(_g, x_range=[{a:.4f}, {b:.4f}], color=GREY)",
-            "        self.play(Create(graph_g), run_time=0.6)",
+            f"        _curve_g = _fg_plot(axes, _g, {a:.4f}, {b:.4f}, {dxc:.4f}, GREY, 2.5, "
+            f"{ymin_break:.4f}, {ymax_break:.4f})",
+            "        self.play(Create(_curve_g), run_time=0.6)",
         ]
 
     # ===== overlays go here (Tasks 2-5) =====
@@ -2199,7 +2222,8 @@ def _emit_riemann(L, R, a, b, n, mk, readout):
             "                axes.c2p(_xb, _yb), axes.c2p(_xb, 0),",
             "                stroke_width=1, stroke_color=WHITE,",
             "                fill_color=BLUE, fill_opacity=0.6))",
-            "        self.play(FadeIn(_traps), run_time=1.0)",
+            "        if _ok:",
+            "            self.play(FadeIn(_traps), run_time=1.0)",
         ]
     else:
         ist = {"left": "left", "right": "right", "mid": "center"}.get(method, "left")
@@ -2208,7 +2232,8 @@ def _emit_riemann(L, R, a, b, n, mk, readout):
             f"            graph_f, x_range=[{a:.4f}, {b:.4f}], dx=({b:.4f}-{a:.4f})/{n},",
             f"            input_sample_type={ist!r}, show_signed_area=True,",
             "            color=(BLUE, GREEN), stroke_width=0.5, stroke_color=WHITE, fill_opacity=0.7)",
-            "        self.play(FadeIn(_rects), run_time=1.0)",
+            "        if _ok:",
+            "            self.play(FadeIn(_rects), run_time=1.0)",
         ]
     if R.get("show_value"):
         # numeric Riemann sum in-scene (sample per method; trapezoid uses the rule)
@@ -2257,7 +2282,8 @@ def _emit_area(L, AR, a, b, gbody, mk, readout):
             f"        _area = axes.get_area(graph_f, x_range=[{a:.4f}, {b:.4f}], "
             f"color={color}, opacity=0.5)",
         ]
-    L.append("        self.play(FadeIn(_area), run_time=1.0)")
+    L += ["        if _ok:",
+          "            self.play(FadeIn(_area), run_time=1.0)"]
     if AR.get("show_value"):
         # trapezoidal numeric integral of f (minus g for 'between') over [a, b]
         integrand = "(_f(_tt) - _g(_tt))" if mode == "between" else "_f(_tt)"
@@ -2330,7 +2356,8 @@ def _emit_derivative(L, DV, mk, readout):
     color = _text_color(DV.get("color", "red"))
     L += [
         f"        _deriv = axes.plot_derivative_graph(graph_f, color={color})",
-        "        self.play(Create(_deriv), run_time=1.0)",
+        "        if _ok:",
+        "            self.play(Create(_deriv), run_time=1.0)",
     ]
     if DV.get("show_legend"):
         readout(mk(
