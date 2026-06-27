@@ -2686,10 +2686,37 @@ def build_table_source(
 
 def _build_table_kind(grid, row_labels, col_labels, use_latex,
                       include_outer_lines, highlights, title, anim, cam_zoom):
-    cls = "MathTable" if use_latex else "Table"
+    cls    = "MathTable" if use_latex else "Table"
+    lblcls = "MathTex"   if use_latex else "Text"
+    rl = [x.strip() for x in str(row_labels or "").split(",") if x.strip()]
+    cl = [x.strip() for x in str(col_labels or "").split(",") if x.strip()]
+
+    args = [_matrix_literal(grid)]
+    if rl:
+        args.append("row_labels=[" + ", ".join(f"{lblcls}({x!r})" for x in rl) + "]")
+    if cl:
+        args.append("col_labels=[" + ", ".join(f"{lblcls}({x!r})" for x in cl) + "]")
+    if include_outer_lines:
+        args.append("include_outer_lines=True")
+
     L = ["from manim import *", "", "", "class ManimScene(Scene):",
          "    def construct(self):"]
-    L.append(f"        t = {cls}({_matrix_literal(grid)})")
+    L.append(f"        t = {cls}(" + ", ".join(args) + ")")
+
+    # highlights — 1-based, label-aware. Skip out-of-range (never crash).
+    n_rows = len(grid) + (1 if cl else 0)
+    n_cols = len(grid[0]) + (1 if rl else 0)
+    for h in (highlights or []):
+        h = h or {}
+        try:
+            r = int(h.get("row")); c = int(h.get("col"))
+        except (TypeError, ValueError):
+            continue
+        if not (1 <= r <= n_rows and 1 <= c <= n_cols):
+            continue
+        color = _text_color(h.get("color", "yellow"))
+        L.append(f"        t.add_highlighted_cell(({r}, {c}), color={color})")
+
     if str(title or "").strip():
         ttl = str(title).strip()[:48]
         L.append(f"        _title = Text({ttl!r}, font_size=32, color=WHITE)")

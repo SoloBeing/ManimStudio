@@ -53,6 +53,71 @@ def test_pipe_separator():
     assert "['a', 'b', 'c']" in src
 
 
+def test_mathtable_when_use_latex():
+    from api import _source_needs_latex
+    plain = build_table_source(kind="table", data="1,2\n3,4")
+    assert not _source_needs_latex(plain), "plain Table must be LaTeX-free"
+    math = build_table_source(kind="table", data=r"\frac{1}{2},x^2", use_latex=True)
+    _compiles(math)
+    assert "MathTable(" in math
+    assert _source_needs_latex(math)
+
+
+def test_row_and_col_labels():
+    src = build_table_source(kind="table", data="1,2\n3,4",
+                             row_labels="R1, R2", col_labels="C1, C2")
+    _compiles(src)
+    assert "row_labels=[Text('R1'), Text('R2')]" in src
+    assert "col_labels=[Text('C1'), Text('C2')]" in src
+
+
+def test_labels_are_mathtex_in_latex_mode():
+    src = build_table_source(kind="table", data="1,2\n3,4",
+                             row_labels="a", use_latex=True)
+    _compiles(src)
+    assert "row_labels=[MathTex('a')]" in src
+
+
+def test_outer_lines_toggle():
+    on = build_table_source(kind="table", data="1,2\n3,4", include_outer_lines=True)
+    off = build_table_source(kind="table", data="1,2\n3,4", include_outer_lines=False)
+    assert "include_outer_lines=True" in on
+    assert "include_outer_lines=True" not in off
+    _compiles(on); _compiles(off)
+
+
+def test_highlight_emits_add_highlighted_cell():
+    src = build_table_source(kind="table", data="1,2\n3,4",
+                             highlights=[{"row": 2, "col": 2, "color": "yellow"}])
+    _compiles(src)
+    assert "t.add_highlighted_cell((2, 2), color=YELLOW)" in src
+
+
+def test_out_of_range_highlight_skipped():
+    # 2x2 grid, no labels -> valid coords are 1..2; (5,5) is out of range.
+    src = build_table_source(kind="table", data="1,2\n3,4",
+                             highlights=[{"row": 5, "col": 5, "color": "red"}])
+    _compiles(src)
+    assert "add_highlighted_cell" not in src
+
+
+def test_highlight_range_accounts_for_labels():
+    # With col_labels present, the label row is index 1, so (3,2) is valid
+    # for a 2-data-row table (rows 1=labels, 2..3=data).
+    src = build_table_source(kind="table", data="1,2\n3,4",
+                             col_labels="C1,C2",
+                             highlights=[{"row": 3, "col": 2, "color": "teal"}])
+    _compiles(src)
+    assert "t.add_highlighted_cell((3, 2), color=TEAL)" in src
+
+
+def test_title_grouped_above_table():
+    src = build_table_source(kind="table", data="1,2\n3,4", title="My Table")
+    _compiles(src)
+    assert "_title = Text('My Table'" in src
+    assert "VGroup(_title, t).arrange(DOWN" in src
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 
