@@ -163,6 +163,20 @@ def test_use_latex_toggles_add_coordinates_and_preflight():
     _compiles(on)
 
 
+def test_sector_degenerate_when_start_equals_end():
+    # C8: start_deg == end_deg is a zero-area wedge -> draw nothing (was a degenerate
+    # Polygon because the guard only handled a1 < a0, not a1 == a0).
+    src = build_polar_source([{"expr": "1 + cos(theta)"}],
+                             sector={"on": True, "start_deg": 45, "end_deg": 45})
+    assert "_wedge" not in src
+    # a real sector (start != end) still emits the wedge
+    ok = build_polar_source([{"expr": "1 + cos(theta)"}],
+                            sector={"on": True, "start_deg": 0, "end_deg": 90})
+    assert "_wedge = Polygon(" in ok
+    _compiles(src)
+    _compiles(ok)
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 

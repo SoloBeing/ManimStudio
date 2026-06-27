@@ -206,6 +206,34 @@ def test_overlays_gated_on_validity_flag():
     _compiles(src)
 
 
+def test_secant_initial_dx_stays_within_interval():
+    # C5: the animated secant must START at a width that keeps x0+dx inside [a, b]
+    # (was a hardcoded 2.0 that sampled graph_f off the drawn interval until it
+    # converged). For a=0,b=2,x0=1 the start width is min(b-x0, x0-a) = 1.0.
+    src = build_calculus_source("x^2", a=0, b=2, x0=1.0,
+                                tangent={"on": True, "animate_secant": True})
+    assert "ValueTracker(2.0)" not in src        # no longer the off-interval default
+    assert "_dxt = ValueTracker(1.0000)" in src  # max(0.1, min(b-x0, x0-a)) = 1.0
+    _compiles(src)
+
+
+def test_graph_g_only_when_area_between():
+    # C7: the second curve graph_g is only needed for area 'between' (bounded_graph);
+    # a g_expr alone, or area 'under', must NOT draw it.
+    under = build_calculus_source("x^2", g_expr="x", a=0, b=2,
+                                  area={"on": True, "mode": "under"})
+    assert "graph_g = axes.plot(_g" not in under
+    off = build_calculus_source("x^2", g_expr="x", a=0, b=2, area={"on": False})
+    assert "graph_g = axes.plot(_g" not in off
+    between = build_calculus_source("x^2", g_expr="x", a=0, b=2,
+                                    area={"on": True, "mode": "between"})
+    assert "graph_g = axes.plot(_g" in between
+    assert "bounded_graph=graph_g" in between
+    _compiles(under)
+    _compiles(off)
+    _compiles(between)
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 

@@ -227,6 +227,17 @@ def test_function_grid_unchanged():
     _compiles(src)
 
 
+def test_parametric_axis_length_has_floor():
+    # C6: a degenerate window (tiny x-span vs huge y-span) must not collapse the
+    # x-axis to an invisible sliver — axis lengths are floored to stay usable.
+    # x-span 1, y-span 100 -> scale 0.06 -> raw x_length 0.06 -> floored to 2.
+    src = _param(param_curves=[{"x_expr": "cos(t)", "y_expr": "50*sin(t)"}],
+                 x_min=-0.5, x_max=0.5, y_min=-50, y_max=50)
+    assert "x_length=0.06" not in src   # the collapsed sliver
+    assert "x_length=2," in src         # floored to a visible minimum
+    _compiles(src)
+
+
 TESTS = [v for k, v in sorted(globals().items())
          if k.startswith("test_") and callable(v)]
 

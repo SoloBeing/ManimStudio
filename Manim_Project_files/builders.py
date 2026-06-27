@@ -1909,7 +1909,11 @@ def _build_parametric_source(
     # smaller of the two axis budgets (11 wide / 6 tall) so the plot still fits.
     _xspan, _yspan = xhi - xlo, yhi - ylo
     _scale = min(11.0 / _xspan, 6.0 / _yspan)
-    _plen_x, _plen_y = _scale * _xspan, _scale * _yspan
+    # Floor each axis length so an extreme aspect ratio (e.g. a 1×100 window) can't
+    # collapse an axis to an invisible sliver. Equal-aspect is preserved in normal
+    # windows where both lengths already exceed the floor (audit C6).
+    _plen_x = max(2.0, _scale * _xspan)
+    _plen_y = max(2.0, _scale * _yspan)
     _emit_cartesian_axes(L, xlo, xhi, xs, ylo, yhi, ys, show_grid, use_latex=use_latex,
                          x_length=_plen_x, y_length=_plen_y,
                          grid_x_length=_plen_x, grid_y_length=_plen_y)
@@ -2101,6 +2105,9 @@ def build_calculus_source(
 
     fbody = _funcgraph_expr(f_expr, "f(x)")
     gbody = _funcgraph_expr(g_expr, "g(x)") if str(g_expr or "").strip() else ""
+    # graph_g is only used as the bounded_graph for area 'between'; don't draw it for
+    # a bare g_expr or area 'under' (audit C7)
+    need_g = bool(gbody and AR.get("on") and str(AR.get("mode", "under")).lower() == "between")
 
     # --- emit helpers ----------------------------------------------------
     L = [
@@ -2210,7 +2217,7 @@ def build_calculus_source(
         f"{ymin_break:.4f}, {ymax_break:.4f})",
         f"        self.play({wrap_tmpl.format(g='_curve')}, run_time={rt:.1f})",
     ]
-    if gbody:
+    if need_g:
         L += [
             f"        graph_g = axes.plot(_g, x_range=[{a:.4f}, {b:.4f}], color=GREY)",
             f"        _curve_g = _fg_plot(axes, _g, {a:.4f}, {b:.4f}, {dxc:.4f}, GREY, 2.5, "
@@ -2221,7 +2228,7 @@ def build_calculus_source(
     # ===== overlays go here (Tasks 2-5) =====
     _emit_riemann(L, R, a, b, n, mk, readout)        # Task 2
     _emit_area(L, AR, a, b, gbody, mk, readout)      # Task 3
-    _emit_tangent(L, TG, x0, mk, readout)            # Task 4
+    _emit_tangent(L, TG, x0, a, b, mk, readout)      # Task 4
     _emit_derivative(L, DV, mk, readout)             # Task 5
 
     L.append("        self.wait(1.5)")
@@ -2332,7 +2339,7 @@ def _emit_area(L, AR, a, b, gbody, mk, readout):
             "Text('Area ≈ ' + _ars, font_size=22, color=WHITE)",
             "MathTex(r'\\int_a^b f\\,dx \\approx ' + _art, font_size=30, color=WHITE)",
         ))
-def _emit_tangent(L, TG, x0, mk, readout):
+def _emit_tangent(L, TG, x0, a, b, mk, readout):
     if not TG.get("on"):
         return
     # numeric central-difference slope at x0
@@ -2345,8 +2352,11 @@ def _emit_tangent(L, TG, x0, mk, readout):
         "            _slope = float('nan')",
     ]
     if TG.get("animate_secant"):
+        # start the secant wide but within [a, b] so x0+dx samples the drawn graph
+        # (was a fixed 2.0 that sat off the interval until convergence) — audit C5
+        _dx0 = max(0.1, min(b - x0, x0 - a))
         L += [
-            "        _dxt = ValueTracker(2.0)",
+            f"        _dxt = ValueTracker({_dx0:.4f})",
             "        def _secant():",
             "            return axes.get_secant_slope_group(",
             "                _x0, graph_f, dx=max(1e-3, _dxt.get_value()),",
@@ -2589,6 +2599,8 @@ def _emit_polar_sector(L, S, rmax):
     color = _text_color(S.get("color", "teal"))
     a0 = float(S.get("start_deg", 0.0)) * _DEG2RAD
     a1 = float(S.get("end_deg", 90.0)) * _DEG2RAD
+    if a0 == a1:
+        return                 # zero-width sector -> draw nothing (audit C8)
     if a1 < a0:
         a0, a1 = a1, a0
     L += [
